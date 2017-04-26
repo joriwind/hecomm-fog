@@ -43,17 +43,16 @@ func NewApplicationServerAPI(ctx context.Context, comlink chan interfaces.ComLin
 func (a *ApplicationServerAPI) StartServer() error {
 	lis, err := net.Listen("tcp", a.port)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("cilorawan: failed to listen: %v", err)
 	}
-	log.Println("Created socket!")
 	grpcServer := grpc.NewServer()
 	server := NewApplicationServerAPI(a.ctx, a.comlink)
 	as.RegisterApplicationServerServer(grpcServer, server)
 	// Register reflection service on gRPC server.
 	reflection.Register(grpcServer)
-	log.Println("Ready to listen!")
+	log.Println("cilorawan: Start listening!")
 	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		log.Fatalf("cilorawan: failed to serve: %v", err)
 	}
 
 	return err
@@ -70,7 +69,7 @@ func (a *ApplicationServerAPI) HandleDataUp(ctx context.Context, req *as.HandleD
 	/*if len(req.RxInfo) == 0 {
 		return nil, grpc.Errorf(codes.InvalidArgument, "RxInfo must have length > 0")
 	}*/
-	log.Printf("Received data from %v: %v", req.DevEUI, req.Data)
+	log.Printf("cilorawan: Received data from %v: %v", req.DevEUI, req.Data)
 
 	message := interfaces.ComLinkMessage{
 		Data:          req.Data,
