@@ -6,14 +6,18 @@ package cilorawan
 //TODO: implement functions
 
 import (
+	"log"
+	"net"
+
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/reflection"
 
 	//"github.com/brocaar/lora-app-server/internal/common"
 	"github.com/brocaar/lorawan"
-	"github.com/joriwind/hecomm-fog/api/as"
+	as "github.com/joriwind/hecomm-fog/api/as"
 	"github.com/joriwind/hecomm-fog/interfaces"
 )
 
@@ -21,6 +25,7 @@ import (
 type ApplicationServerAPI struct {
 	ctx     context.Context
 	comlink chan interfaces.ComLinkMessage
+	port    string
 }
 
 // NewApplicationServerAPI returns a new ApplicationServerAPI.
@@ -28,8 +33,29 @@ func NewApplicationServerAPI(ctx context.Context, comlink chan interfaces.ComLin
 	return &ApplicationServerAPI{
 		ctx:     ctx,
 		comlink: comlink,
+		port:    ":8000",
 	}
 
+}
+
+//StartServer creates a new server
+func (a *ApplicationServerAPI) StartServer() error {
+	lis, err := net.Listen("tcp", a.port)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	log.Println("Created socket!")
+	grpcServer := grpc.NewServer()
+	server := NewApplicationServerAPI(a.ctx, a.comlink)
+	as.RegisterApplicationServerServer(grpcServer, server)
+	// Register reflection service on gRPC server.
+	reflection.Register(grpcServer)
+	log.Println("Ready to listen!")
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
+
+	return err
 }
 
 // JoinRequest handles a join-request.
