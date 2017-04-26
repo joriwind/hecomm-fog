@@ -1,22 +1,25 @@
 package cilorawan
 
 import (
+	"context"
 	"log"
 
 	ns "github.com/joriwind/hecomm-fog/api/ns"
+	"github.com/joriwind/hecomm-fog/interfaces"
 	"google.golang.org/grpc"
 )
 
 //NetworkClient Object for interfacing LoRaWAN Network server client
 type NetworkClient struct {
-	Host          string
-	NsDialOptions []grpc.DialOption
-	NsConn        *grpc.ClientConn
-	NetworkClient ns.NetworkServerClient
+	ctx                 context.Context
+	host                string
+	nsDialOptions       []grpc.DialOption
+	nsConn              *grpc.ClientConn
+	networkServerClient ns.NetworkServerClient
 }
 
 //NewNetworkClient Create connection with LoRaWAN Network server
-func (n *NetworkClient) NewNetworkClient(host string, nsDialOptions []grpc.DialOption) (*NetworkClient, error) {
+func (n *NetworkClient) NewNetworkClient(ctx context.Context, host string, nsDialOptions []grpc.DialOption) (*NetworkClient, error) {
 	//Does the fog use secured connection?
 	//var asDialOptions []grpc.DialOption
 	/*if c.String("as-tls-cert") != "" && c.String("as-tls-key") != "" {
@@ -33,11 +36,45 @@ func (n *NetworkClient) NewNetworkClient(host string, nsDialOptions []grpc.DialO
 		return &NetworkClient{}, err
 	}
 	//defer asConn.Close() //TODO: Do not forget to close connection!
-	networkClient := ns.NewNetworkServerClient(nsConn)
+	networkServerClient := ns.NewNetworkServerClient(nsConn)
 	return &NetworkClient{
-		Host:          host,
-		NsDialOptions: nsDialOptions,
-		NsConn:        nsConn,
-		NetworkClient: networkClient,
+		ctx:                 ctx,
+		host:                host,
+		nsDialOptions:       nsDialOptions,
+		nsConn:              nsConn,
+		networkServerClient: networkServerClient,
 	}, nil
+}
+
+//SendData Send data from fogCore to LoRaWAN Network Server
+func (n *NetworkClient) SendData(message interfaces.ComLinkMessage) error {
+	pushDataDownReq := &ns.PushDataDownRequest{
+		DevEUI:    message.Destination,
+		Confirmed: true,
+		FCnt:      0,
+		FPort:     255,
+		Data:      message.Data,
+	}
+
+	//Find the right FCnt
+	nodeSessionRequest := &ns.GetNodeSessionRequest{
+		DevEUI: message.Destination,
+	}
+	if nodeSessionResponse, err := n.networkServerClient.GetNodeSession(n.ctx, nodeSessionRequest, nil); err != nil {
+		log.Printf("LoRaWAN interface: GetNodeSession did not work: %v", err)
+	} else {
+		pushDataDownReq.FCnt = nodeSessionResponse.FCntDown
+	}
+
+	//Send packet down to Network server
+	if _, err := n.networkServerClient.PushDataDown(n.ctx, pushDataDownReq, nil); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+//Close Close the connection!
+func (n *NetworkClient) Close() {
+	n.nsConn.Close()
 }
