@@ -12,11 +12,12 @@ import (
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
 
 	//"github.com/brocaar/lora-app-server/internal/common"
-	"github.com/brocaar/lorawan"
+
+	"time"
+
 	as "github.com/joriwind/hecomm-fog/api/as"
 	"github.com/joriwind/hecomm-fog/interfaces"
 )
@@ -60,23 +61,34 @@ func (a *ApplicationServerAPI) StartServer() error {
 
 // JoinRequest handles a join-request.
 func (a *ApplicationServerAPI) JoinRequest(ctx context.Context, req *as.JoinRequestRequest) (*as.JoinRequestResponse, error) {
-	return nil, nil
+	log.Println("cilorawan: received JoinRequest???")
+	return &as.JoinRequestResponse{}, nil
 }
 
 // HandleDataUp handles incoming (uplink) data.
 func (a *ApplicationServerAPI) HandleDataUp(ctx context.Context, req *as.HandleDataUpRequest) (*as.HandleDataUpResponse, error) {
-	if len(req.RxInfo) == 0 {
+	/*if len(req.RxInfo) == 0 {
 		return nil, grpc.Errorf(codes.InvalidArgument, "RxInfo must have length > 0")
-	}
+	}*/
+	log.Printf("Received data from %v: %v", req.DevEUI, req.Data)
 
-	return nil, nil
+	message := interfaces.ComLinkMessage{
+		Data:          req.Data,
+		Destination:   nil,
+		InterfaceType: interfaces.Lorawan,
+		Origin:        req.DevEUI,
+		TimeReceived:  time.Now(),
+	}
+	a.comlink <- message
+
+	return &as.HandleDataUpResponse{}, nil
 
 }
 
 // GetDataDown returns the first payload from the datadown queue.
 func (a *ApplicationServerAPI) GetDataDown(ctx context.Context, req *as.GetDataDownRequest) (*as.GetDataDownResponse, error) {
-	var devEUI lorawan.EUI64
-	copy(devEUI[:], req.DevEUI)
+	/*var devEUI lorawan.EUI64
+	copy(devEUI[:], req.DevEUI)*/
 
 	return nil, nil
 
@@ -84,8 +96,8 @@ func (a *ApplicationServerAPI) GetDataDown(ctx context.Context, req *as.GetDataD
 
 // HandleDataDownACK handles an ack on a downlink transmission.
 func (a *ApplicationServerAPI) HandleDataDownACK(ctx context.Context, req *as.HandleDataDownACKRequest) (*as.HandleDataDownACKResponse, error) {
-	var devEUI lorawan.EUI64
-	copy(devEUI[:], req.DevEUI)
+	/*var devEUI lorawan.EUI64
+	copy(devEUI[:], req.DevEUI)*/
 
 	return nil, nil
 
@@ -93,8 +105,9 @@ func (a *ApplicationServerAPI) HandleDataDownACK(ctx context.Context, req *as.Ha
 
 // HandleError handles an incoming error.
 func (a *ApplicationServerAPI) HandleError(ctx context.Context, req *as.HandleErrorRequest) (*as.HandleErrorResponse, error) {
-	var devEUI lorawan.EUI64
-	copy(devEUI[:], req.DevEUI)
+	/*var devEUI lorawan.EUI64
+	copy(devEUI[:], req.DevEUI)*/
+	log.Println("cilorawan: HandleError request???")
 
 	return nil, nil
 }
