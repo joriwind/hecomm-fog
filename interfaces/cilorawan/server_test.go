@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -27,22 +28,67 @@ func TestStartServer(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-	// TODO: Add test cases.
+		// TODO: Add test cases.
+		{
+			name: "test1",
+			args: args{
+				interfaces.ComLinkMessage{
+					Origin: []byte{0, 0, 0, 0, 0, 0, 0, 0},
+					Data:   []byte{1, 2, 3, 4, 5, 6},
+				},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Log(tt)
 		/*if err := StartServer(tt.args.ctx, tt.args.comLink); (err != nil) != tt.wantErr {
 			t.Errorf("%q. StartServer() error = %v, wantErr %v", tt.name, err, tt.wantErr)
 		}*/
+		if err := sendToAsServer(tt.args.message, nil); (err != nil) != tt.wantErr {
+			t.Errorf("%q. StartServer() error = %v, wantErr %v", tt.name, err, tt.wantErr)
+		}
+		select {
+		case m := <-comLink:
+			if !testEq(m.Origin, tt.args.message.Origin) && !testEq(m.Data, tt.args.message.Data) {
+				t.Errorf("%q. TestStartServer() error: Dit not receive same data as send!, wantErr %v", tt.name, tt.wantErr)
+			}
+		case <-time.After(time.Second * 1):
+			t.Errorf("%q. TestStartServer() error: Timeout, wantErr %v", tt.name, tt.wantErr)
+		}
 	}
 }
 
-func sendToAsServer(asDialOptions []grpc.DialOption) error {
+func testEq(a, b []byte) bool {
+
+	if a == nil && b == nil {
+		return true
+	}
+
+	if a == nil || b == nil {
+		return false
+	}
+
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func sendToAsServer(message interfaces.ComLinkMessage, asDialOptions []grpc.DialOption) error {
 	//Create connection to server:
 	asDialOptions = append(asDialOptions, grpc.WithInsecure())
 	//}
 	//host := "192.168.1.1:8000"
 	asConn, err := grpc.Dial("localhost:8000", asDialOptions...) //TODO: when close connection?
+	defer asConn.Close()
 	if err != nil {
 		log.Fatalf("application-server (FOG) dial error: %s", err)
 		return err
@@ -53,10 +99,10 @@ func sendToAsServer(asDialOptions []grpc.DialOption) error {
 	//Send packet!
 	publishDataUpReq := as.HandleDataUpRequest{
 		AppEUI: []byte{0, 0, 0, 0, 0, 0, 0, 0},
-		DevEUI: []byte{0, 0, 0, 0, 0, 0, 0, 0},
+		DevEUI: message.Origin,
 		FCnt:   2,
 		FPort:  255,
-		Data:   []byte{1, 2, 3, 4, 5},
+		Data:   message.Data,
 		TxInfo: &as.TXInfo{},
 	}
 	if _, err := asClient.HandleDataUp(context.Background(), &publishDataUpReq); err != nil {
