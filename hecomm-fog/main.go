@@ -12,7 +12,7 @@ import (
 func main() {
 	fmt.Println("Hello world!")
 	comLink := make(chan interfaces.ComLinkMessage, 5)
-	go cilorawan.Run(context.Background(), comLink)
+	go cilorawan.StartServer(context.Background(), comLink)
 	select {
 	case c := <-comLink:
 		log.Printf("Received message from: %v\n", c)

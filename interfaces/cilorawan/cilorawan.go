@@ -19,8 +19,8 @@ const (
 type server struct {
 }
 
-//NewServer creates a new server
-func Run(ctx context.Context, comLink chan interfaces.ComLinkMessage) error {
+//StartServer creates a new server
+func StartServer(ctx context.Context, comLink chan interfaces.ComLinkMessage) error {
 	lis, err := net.Listen("tcp", portGrpcServer)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
