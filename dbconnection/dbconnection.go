@@ -248,7 +248,8 @@ func GetNode(devID []byte) *Node {
 	}
 }
 
-func GetPlatform(platformID int) *Platform {
+//GetPlatform Retrieve platform via platform id
+func GetPlatform(id int) *Platform {
 	db, err := sql.Open(dbDriver, dbsource)
 	if err != nil {
 		panic(err)
@@ -260,8 +261,8 @@ func GetPlatform(platformID int) *Platform {
 	}
 	defer stmt.Close()
 
-	row := stmt.QueryRow(platformID)
-	var id, citype int
+	row := stmt.QueryRow(id)
+	var citype int
 	var address, tlscert, tlskey, ciargs string
 	row.Scan(&id, &citype, &address, &tlscert, &tlskey, &ciargs)
 	var data map[string]interface{}
