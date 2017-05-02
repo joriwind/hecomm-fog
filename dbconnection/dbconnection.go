@@ -147,6 +147,50 @@ func GetPlatform(id int) *Platform {
 	return &Platform{}
 }
 
+//GetPlatforms Retrieve all platforms
+func GetPlatforms() []*Platform {
+	db, err := sql.Open(dbDriver, dbsource)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+	stmt, err := db.Prepare("SELECT * FROM platform")
+	if err != nil {
+		panic(err)
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query()
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+	var platforms []*Platform
+
+	for rows.Next() {
+
+		var id, citype int
+		var address, tlscert, tlskey, ciargs string
+		if err := rows.Scan(&id, &address, &tlscert, &tlskey, &citype, &ciargs); err != nil {
+			panic(err)
+		}
+		var data map[string]interface{}
+		if err := json.Unmarshal([]byte(ciargs), &data); err != nil {
+			fmt.Printf("Platform from query: %v, %v, %v, %v, %v, %v\n", id, citype, address, tlscert, tlskey, ciargs)
+			panic(err)
+		}
+		platforms = append(platforms, &Platform{
+			ID:      id,
+			Address: address,
+			TLSCert: tlscert,
+			TLSKey:  tlskey,
+			CIType:  citype,
+			CIArgs:  data,
+		})
+	}
+	return platforms
+}
+
 //DeletePlatform Delete platform via platform id
 func DeletePlatform(id int) error {
 	db, err := sql.Open(dbDriver, dbsource)
