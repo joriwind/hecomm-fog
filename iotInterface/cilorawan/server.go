@@ -27,14 +27,16 @@ type ApplicationServerAPI struct {
 	ctx     context.Context
 	comlink chan iotInterface.ComLinkMessage
 	port    string
+	options []grpc.ServerOption
 }
 
 // NewApplicationServerAPI returns a new ApplicationServerAPI.
-func NewApplicationServerAPI(ctx context.Context, comlink chan iotInterface.ComLinkMessage) *ApplicationServerAPI {
+func NewApplicationServerAPI(ctx context.Context, comlink chan iotInterface.ComLinkMessage, opt ...grpc.ServerOption) *ApplicationServerAPI {
 	return &ApplicationServerAPI{
 		ctx:     ctx,
 		comlink: comlink,
 		port:    ":8000",
+		options: opt,
 	}
 
 }
@@ -45,9 +47,9 @@ func (a *ApplicationServerAPI) StartServer() error {
 	if err != nil {
 		log.Fatalf("cilorawan: failed to listen: %v", err)
 	}
-	grpcServer := grpc.NewServer()
-	server := NewApplicationServerAPI(a.ctx, a.comlink)
-	as.RegisterApplicationServerServer(grpcServer, server)
+	grpcServer := grpc.NewServer(a.options...)
+	//server := NewApplicationServerAPI(a.ctx, a.comlink)
+	as.RegisterApplicationServerServer(grpcServer, a)
 	// Register reflection service on gRPC server.
 	reflection.Register(grpcServer)
 	log.Println("cilorawan: Start listening!")
