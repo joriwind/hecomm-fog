@@ -8,13 +8,18 @@ import (
 	"errors"
 	"log"
 	"net"
+
+	"github.com/joriwind/hecomm-fog/dbconnection"
+	"github.com/joriwind/hecomm-fog/iotInterface"
+	"github.com/joriwind/hecomm-fog/iotInterface/cilorawan"
+	"google.golang.org/grpc"
 )
 
 //Fogcore Struct
 type Fogcore struct {
-	ctx           context.Context
-	opt           FogcoreOptions
-	ctxInterfaces []context.Context
+	ctx             context.Context
+	opt             Options
+	ctxiotInterface []context.Context
 }
 
 type ci struct {
@@ -23,14 +28,22 @@ type ci struct {
 	comLink chan []byte
 }
 
-type FogcoreOptions struct {
+//Options Defines possible options to pass along with Fogcore object
+type Options struct {
 	Hostname   string
 	CertServer string
 	KeyServer  string
 }
 
+type iotReference struct {
+	platform *dbconnection.Platform
+	channel  chan iotInterface.ComLinkMessage
+	ctx      context.Context
+	cancel   func()
+}
+
 //NewFogcore Create new fogcore module
-func NewFogcore(ctx context.Context, opt FogcoreOptions) *Fogcore {
+func NewFogcore(ctx context.Context, opt Options) *Fogcore {
 	fogcore := Fogcore{ctx: ctx, opt: opt}
 
 	switch {
@@ -47,9 +60,53 @@ func NewFogcore(ctx context.Context, opt FogcoreOptions) *Fogcore {
 
 //Start Start the fogcore module
 func (f *Fogcore) Start() error {
+	//Start management interface
+	go f.listenOnTLS()
+
+	//Startup already known platforms
+	platforms := dbconnection.GetPlatforms()
+	//Create access to the will be routines of iot interfaces
+	iotInterfaces := make([]*iotReference, len(platforms))
+	iotChannel := make(chan iotInterface.ComLinkMessage, 20)
+
+	//Starup the listening routines for all platforms in the database
+	for index, pl := range platforms {
+		//Depending on type, create iot interface routine
+		switch pl.CIType {
+		case iotInterface.Lorawan:
+			//Create the communication to the iot interface thread
+			channel := make(chan iotInterface.ComLinkMessage, 5)
+			ctx, cancel := context.WithCancel(f.ctx)
+			//TODO: convert ciargs to grpc.serveroption!
+			var args grpc.ServerOption
+			//args := (grpc.ServerOption)pl.CIArgs
+			lorawanapi := cilorawan.NewApplicationServerAPI(f.ctx, channel, args)
+
+			iotInterfaces[index] = &iotReference{platform: pl, channel: channel, ctx: ctx, cancel: cancel}
+			//Start the cilorawan
+			go func() {
+				if err := lorawanapi.StartServer(); err != nil {
+					log.Fatalf("Something went wrong in interface: %v; error: %v", iotInterfaces[index], err)
+				}
+			}()
+			//Tunnel the communication to common channel -- easy access in main loop
+			go func() {
+				for {
+					iotChannel <- <-channel
+				}
+			}()
+
+		case iotInterface.Sixlowpan:
+
+		default:
+			log.Fatalf("Unkown interface requested! %v", pl)
+		}
+	}
 
 	for {
 		select {
+		case <-iotChannel:
+
 		case <-f.ctx.Done():
 			return nil
 		}
