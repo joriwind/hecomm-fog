@@ -5,7 +5,7 @@ import (
 	"log"
 
 	ns "github.com/joriwind/hecomm-fog/api/ns"
-	"github.com/joriwind/hecomm-fog/interfaces"
+	"github.com/joriwind/hecomm-fog/iotInterface"
 	"google.golang.org/grpc"
 )
 
@@ -47,7 +47,7 @@ func (n *NetworkClient) NewNetworkClient(ctx context.Context, host string, nsDia
 }
 
 //SendData Send data from fogCore to LoRaWAN Network Server
-func (n *NetworkClient) SendData(message interfaces.ComLinkMessage) error {
+func (n *NetworkClient) SendData(message iotInterface.ComLinkMessage) error {
 	pushDataDownReq := &ns.PushDataDownRequest{
 		DevEUI:    message.Destination,
 		Confirmed: true,

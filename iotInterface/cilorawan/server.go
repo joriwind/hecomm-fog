@@ -19,18 +19,18 @@ import (
 	"time"
 
 	as "github.com/joriwind/hecomm-fog/api/as"
-	"github.com/joriwind/hecomm-fog/interfaces"
+	"github.com/joriwind/hecomm-fog/iotInterface"
 )
 
 // ApplicationServerAPI implements the as.ApplicationServerServer interface.
 type ApplicationServerAPI struct {
 	ctx     context.Context
-	comlink chan interfaces.ComLinkMessage
+	comlink chan iotInterface.ComLinkMessage
 	port    string
 }
 
 // NewApplicationServerAPI returns a new ApplicationServerAPI.
-func NewApplicationServerAPI(ctx context.Context, comlink chan interfaces.ComLinkMessage) *ApplicationServerAPI {
+func NewApplicationServerAPI(ctx context.Context, comlink chan iotInterface.ComLinkMessage) *ApplicationServerAPI {
 	return &ApplicationServerAPI{
 		ctx:     ctx,
 		comlink: comlink,
@@ -71,10 +71,10 @@ func (a *ApplicationServerAPI) HandleDataUp(ctx context.Context, req *as.HandleD
 	}*/
 	log.Printf("cilorawan: Received data from %v: %v", req.DevEUI, req.Data)
 
-	message := interfaces.ComLinkMessage{
+	message := iotInterface.ComLinkMessage{
 		Data:          req.Data,
 		Destination:   nil,
-		InterfaceType: interfaces.Lorawan,
+		InterfaceType: iotInterface.Lorawan,
 		Origin:        req.DevEUI,
 		TimeReceived:  time.Now(),
 	}

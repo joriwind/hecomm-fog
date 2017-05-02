@@ -10,14 +10,14 @@ import (
 	"google.golang.org/grpc"
 
 	as "github.com/joriwind/hecomm-fog/api/as"
-	"github.com/joriwind/hecomm-fog/interfaces"
+	"github.com/joriwind/hecomm-fog/iotInterface"
 )
 
 func TestStartServer(t *testing.T) {
 	type args struct {
-		message interfaces.ComLinkMessage
+		message iotInterface.ComLinkMessage
 	}
-	comLink := make(chan interfaces.ComLinkMessage, 5)
+	comLink := make(chan iotInterface.ComLinkMessage, 5)
 	ctx := context.Background()
 
 	asAPI := NewApplicationServerAPI(ctx, comLink)
@@ -32,7 +32,7 @@ func TestStartServer(t *testing.T) {
 		{
 			name: "test1",
 			args: args{
-				interfaces.ComLinkMessage{
+				iotInterface.ComLinkMessage{
 					Origin: []byte{0, 0, 0, 0, 0, 0, 0, 0},
 					Data:   []byte{1, 2, 3, 4, 5, 6},
 				},
@@ -82,7 +82,7 @@ func testEq(a, b []byte) bool {
 	return true
 }
 
-func sendToAsServer(message interfaces.ComLinkMessage, asDialOptions []grpc.DialOption) error {
+func sendToAsServer(message iotInterface.ComLinkMessage, asDialOptions []grpc.DialOption) error {
 	//Create connection to server:
 	asDialOptions = append(asDialOptions, grpc.WithInsecure())
 	//}
