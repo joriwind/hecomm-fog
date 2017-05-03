@@ -25,8 +25,9 @@ type NetworkClient struct {
 }
 
 //NewNetworkClient Create connection with LoRaWAN Network server
-func (n *NetworkClient) NewNetworkClient(ctx context.Context, host string, nsDialOptions []grpc.DialOption) (*NetworkClient, error) {
+func NewNetworkClient(ctx context.Context, host string, nsDialOptions []grpc.DialOption) (*NetworkClient, error) {
 	//Does the fog use secured connection?
+	var n NetworkClient
 	//var asDialOptions []grpc.DialOption
 	/*if c.String("as-tls-cert") != "" && c.String("as-tls-key") != "" {
 		asDialOptions = append(asDialOptions, grpc.WithTransportCredentials(
@@ -39,17 +40,18 @@ func (n *NetworkClient) NewNetworkClient(ctx context.Context, host string, nsDia
 	nsConn, err := grpc.Dial(host, nsDialOptions...) //TODO: when close connection?
 	if err != nil {
 		log.Fatalf("application-server (FOG) dial error: %s", err)
-		return &NetworkClient{}, err
+		return &n, err
 	}
 	//defer asConn.Close() //TODO: Do not forget to close connection!
 	networkServerClient := ns.NewNetworkServerClient(nsConn)
-	return &NetworkClient{
+	n = NetworkClient{
 		ctx:                 ctx,
 		host:                host,
 		nsDialOptions:       nsDialOptions,
 		nsConn:              nsConn,
 		networkServerClient: networkServerClient,
-	}, nil
+	}
+	return &n, nil
 }
 
 //ConvertArgsToDownlinkOption Converts the general mapping to usable dialoptions
