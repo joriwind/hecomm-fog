@@ -25,7 +25,7 @@ type NetworkClient struct {
 }
 
 //NewNetworkClient Create connection with LoRaWAN Network server
-func NewNetworkClient(ctx context.Context, host string, nsDialOptions []grpc.DialOption) (*NetworkClient, error) {
+func NewNetworkClient(ctx context.Context, host string, nsDialOptions ...grpc.DialOption) (*NetworkClient, error) {
 	//Does the fog use secured connection?
 	var n NetworkClient
 	//var asDialOptions []grpc.DialOption
