@@ -18,8 +18,14 @@ import (
 
 	"time"
 
+	"encoding/json"
+
+	"fmt"
+
 	as "github.com/joriwind/hecomm-fog/api/as"
 	"github.com/joriwind/hecomm-fog/iotInterface"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 )
 
 // ApplicationServerAPI implements the as.ApplicationServerServer interface.
@@ -39,6 +45,65 @@ func NewApplicationServerAPI(ctx context.Context, comlink chan iotInterface.ComL
 		options: opt,
 	}
 
+}
+
+//ConvertArgsToUplinkOptions Convert the stored general interface options from database into usable options for lorawan server
+func ConvertArgsToUplinkOptions(args interface{}, opt *[]grpc.ServerOption) error {
+	//Convert to usable format
+	argsBytes, err := json.Marshal(args)
+	if err != nil {
+		return err
+	}
+	var input map[string]interface{}
+	err = json.Unmarshal(argsBytes, input)
+	if err != nil {
+		return err
+	}
+
+	//Loop over all available options
+	for index, value := range input {
+		switch index {
+		case "Creds":
+			bytes, err := json.Marshal(value)
+			if err != nil {
+				return err
+			}
+			var option credentials.TransportCredentials
+			err = json.Unmarshal(bytes, &option)
+			if err != nil {
+				return err
+			}
+			*opt = append(*opt, grpc.Creds(option))
+
+		case "KeepaliveParams":
+			bytes, err := json.Marshal(value)
+			if err != nil {
+				return err
+			}
+			var option keepalive.ServerParameters
+			err = json.Unmarshal(bytes, &option)
+			if err != nil {
+				return err
+			}
+			*opt = append(*opt, grpc.KeepaliveParams(option))
+
+		case "KeepaliveEnforcementPolicy":
+			bytes, err := json.Marshal(value)
+			if err != nil {
+				return err
+			}
+			var option keepalive.EnforcementPolicy
+			err = json.Unmarshal(bytes, &option)
+			if err != nil {
+				return err
+			}
+			*opt = append(*opt, grpc.KeepaliveEnforcementPolicy(option))
+
+		default:
+			return fmt.Errorf("cilorawan: ConvertARgsToOptions: unkown ServerOption: %v: %v", index, value)
+		}
+	}
+	return nil
 }
 
 //StartServer creates a new server
