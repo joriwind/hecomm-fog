@@ -12,6 +12,7 @@ import (
 	"github.com/joriwind/hecomm-fog/dbconnection"
 	"github.com/joriwind/hecomm-fog/iotInterface"
 	"github.com/joriwind/hecomm-fog/iotInterface/cilorawan"
+	"github.com/joriwind/hecomm-fog/iotInterface/cisixlowpan"
 	"google.golang.org/grpc"
 )
 
@@ -100,6 +101,28 @@ func (f *Fogcore) Start() error {
 			}()
 
 		case iotInterface.Sixlowpan:
+			//Create the communication to the iot interface thread
+			channel := make(chan iotInterface.ComLinkMessage, 5)
+			ctx, cancel := context.WithCancel(f.ctx)
+
+			var args cisixlowpan.ServerOptions
+			cisixlowpan.ConvertArgsToUplinkOptions(pl.CIArgs["uplink"], &args)
+
+			sixlowpanServer := cisixlowpan.NewServer(ctx, channel, args)
+
+			iotInterfaces[index] = &iotReference{platform: pl, channel: channel, ctx: ctx, cancel: cancel}
+			//Start the cilorawan
+			go func() {
+				if err := sixlowpanServer.Start(); err != nil {
+					log.Fatalf("Something went wrong in interface: %v; error: %v", iotInterfaces[index], err)
+				}
+			}()
+			//Tunnel the communication to common channel -- easy access in main loop
+			go func() {
+				for {
+					iotChannel <- <-channel
+				}
+			}()
 
 		default:
 			log.Fatalf("Unkown interface requested! %v", pl)
@@ -139,6 +162,7 @@ func (f *Fogcore) Start() error {
 					log.Fatalf("fogcore: cilorawan: creation of newnetworkclient failed! address: %v options: %v\n", platform.CIArgs["downlinkAddress"].(string), opt)
 					break
 				}
+				defer client.Close()
 				//Send data with created client
 				err = client.SendData(message)
 				if err != nil {
@@ -147,6 +171,18 @@ func (f *Fogcore) Start() error {
 				}
 
 			case iotInterface.Sixlowpan:
+				client, err := cisixlowpan.NewClient("udp6", dstnode.DevID)
+				if err != nil {
+					log.Fatalf("fogcore: cisixlowpan: unable to create client, destination: %v\n", dstnode.DevID)
+					break
+				}
+				defer client.Close()
+
+				err = client.SendData(message)
+				if err != nil {
+					log.Fatalf("fogcore: cisixlowpan: unable to send message: %v, error: %v\n", message, err)
+					break
+				}
 
 			default:
 				log.Fatalln("fogcore: Unkown interface of destination node")
