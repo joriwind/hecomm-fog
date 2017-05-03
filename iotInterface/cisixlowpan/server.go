@@ -35,15 +35,17 @@ func NewServer(ctx context.Context, comlink chan iotInterface.ComLinkMessage, op
 }
 
 //Start Create socket and start listening
-func (s *Server) Start() {
+func (s *Server) Start() error {
 	address, err := net.ResolveUDPAddr("udp6", s.port)
 	if err != nil {
 		log.Fatalf("cisixlowpan: unable to resolve UDP address: err: %v\n", err)
+		return err
 	}
 
 	ln, err := net.ListenUDP("upd6", address)
 	if err != nil {
 		log.Fatalf("cisixlowpan: unable to listen on address: %v, error: %v", address, err)
+		return err
 	}
 	defer ln.Close()
 
