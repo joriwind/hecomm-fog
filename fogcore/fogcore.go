@@ -77,10 +77,13 @@ func (f *Fogcore) Start() error {
 			//Create the communication to the iot interface thread
 			channel := make(chan iotInterface.ComLinkMessage, 5)
 			ctx, cancel := context.WithCancel(f.ctx)
-			//TODO: convert ciargs to grpc.serveroption!
-			var args grpc.ServerOption
+
+			//Convert general mapping to cilorawan Server Options
+			var args []grpc.ServerOption
+			cilorawan.ConvertArgsToUplinkOptions(pl.CIArgs["uplink"], &args)
+
 			//args := (grpc.ServerOption)pl.CIArgs
-			lorawanapi := cilorawan.NewApplicationServerAPI(f.ctx, channel, args)
+			lorawanapi := cilorawan.NewApplicationServerAPI(f.ctx, channel, args...)
 
 			iotInterfaces[index] = &iotReference{platform: pl, channel: channel, ctx: ctx, cancel: cancel}
 			//Start the cilorawan
@@ -105,7 +108,49 @@ func (f *Fogcore) Start() error {
 
 	for {
 		select {
-		case <-iotChannel:
+		case message := <-iotChannel:
+			//Find destination node
+			dstnode, err := dbconnection.GetDestination(&message)
+			if err != nil {
+				log.Fatalf("fogcore: Error in searching for destination node, message: %v", message)
+				break
+			}
+			platform, err := dbconnection.GetPlatform(dstnode.PlatformID)
+			if err != nil {
+				log.Fatalf("fogcore: Error in searching for platform of destination node, dstnode: %v", dstnode)
+				break
+
+			}
+
+			//Send to destination node
+			switch dstnode.InfType {
+			case iotInterface.Lorawan:
+				var opt []grpc.DialOption
+				//Get interface options for downlink
+				err := cilorawan.ConvertArgsToDownlinkOption(platform.CIArgs["downlink"], &opt)
+				if err != nil {
+					log.Fatalf("focore: cilorawan: downlink conversion failed: options: %v/n", platform.CIArgs["downlink"])
+					break
+				}
+
+				//Create client, to send the message
+				client, err := cilorawan.NewNetworkClient(context.Background(), platform.CIArgs["downlinkAddress"].(string), opt...)
+				if err != nil {
+					log.Fatalf("fogcore: cilorawan: creation of newnetworkclient failed! address: %v options: %v\n", platform.CIArgs["downlinkAddress"].(string), opt)
+					break
+				}
+				//Send data with created client
+				err = client.SendData(message)
+				if err != nil {
+					log.Fatalf("fogcore: cilorawan: unable to send message: %v", message)
+					break
+				}
+
+			case iotInterface.Sixlowpan:
+
+			default:
+				log.Fatalln("fogcore: Unkown interface of destination node")
+			}
 
 		case <-f.ctx.Done():
 			return nil
