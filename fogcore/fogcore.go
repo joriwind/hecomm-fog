@@ -161,7 +161,32 @@ func handleTLSClient(conn net.Conn) {
 
 }
 
-func (f *Fogcore) executeCommand(command *controlMessage) error {
+//executeCommand Handle the control messages
+func (f *Fogcore) executeCommand(message *controlMessage) error {
+	switch message.command {
+	case "push": //Start new platform
+		channel := make(chan iotInterface.ComLinkMessage, 5)
+		ctx, cancel := context.WithCancel(f.ctx)
+		//Add new interface to end of collection
+		f.ciCollection = append(f.ciCollection, &ci{platform: message.platform, channel: channel, ctx: ctx, cancel: cancel})
+		//Startup last added interface
+		f.startInterface(f.ciCollection[len(f.ciCollection)-1])
+
+	case "pull": //Stop a platform
+		for index, intface := range f.ciCollection {
+			if intface.platform.ID == message.platform.ID {
+				//Delete while preserving order
+				//append the slice part before the element with all the elements after the specific element
+				f.ciCollection = append(f.ciCollection[:index], f.ciCollection[index+1:]...)
+
+			}
+
+		}
+	default:
+		log.Fatalf("fogcore: unkown control message: %v\n", *message)
+
+	}
+
 	return nil
 }
 
@@ -236,7 +261,7 @@ func (f *Fogcore) handleCIMessage(clm *iotInterface.ComLinkMessage) error {
 	}
 
 	//Send to destination node
-	switch dstnode.InfType {
+	switch platform.CIType {
 	case iotInterface.Lorawan:
 		var opt []grpc.DialOption
 		//Get interface options for downlink
