@@ -80,7 +80,7 @@ func (s *Server) handlePacket(buf []byte, addr net.Addr) {
 }
 
 //ConvertArgsToUplinkOptions Convert the stored general interface options from database into usable options for sixlowpan server
-func ConvertArgsToUplinkOptions(args interface{}, opt ServerOptions) error {
+func ConvertArgsToUplinkOptions(args interface{}, opt *ServerOptions) error {
 	//Convert to usable format
 	argsBytes, err := json.Marshal(args)
 	if err != nil {
