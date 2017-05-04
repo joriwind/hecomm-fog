@@ -65,7 +65,10 @@ func (f *Fogcore) Start() error {
 	go f.listenOnTLS()
 
 	//Startup already known platforms
-	platforms := dbconnection.GetPlatforms()
+	platforms, err := dbconnection.GetPlatforms()
+	if err != nil {
+		log.Fatalf("fogcore: something went wrong in retrieving interfaces: %v", err)
+	}
 	//Create access to the will be routines of iot interfaces
 	iotInterfaces := make([]*iotReference, len(platforms))
 	iotChannel := make(chan iotInterface.ComLinkMessage, 20)
