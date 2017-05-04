@@ -18,9 +18,8 @@ import (
 
 //Fogcore Struct
 type Fogcore struct {
-	ctx             context.Context
-	opt             Options
-	ctxiotInterface []context.Context
+	ctx context.Context
+	opt Options
 }
 
 type ci struct {
