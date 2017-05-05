@@ -331,6 +331,35 @@ func FindNode(devID []byte) (*Node, error) {
 	return &node, err
 }
 
+//FindAvailableProviderNode Locate a node that is still available to transfer the required data
+func FindAvailableProviderNode(infType int) (*Node, error) {
+	var node Node
+	db, err := sql.Open(dbDriver, dbsource)
+	if err != nil {
+		return &node, err
+	}
+	defer db.Close()
+	stmt, err := db.Prepare("SELECT * FROM node LEFT JOIN link ON link.provnode = node.id WHERE node.inftype=? AND link.id is null AND node.isprovider = 1")
+	if err != nil {
+		return &node, err
+	}
+	defer stmt.Close()
+
+	row := stmt.QueryRow(infType)
+	var id, platformid, inftype int
+	var devid []byte
+	var isprovider bool
+	row.Scan(&id, &devid, &platformid, &isprovider, &inftype)
+	node = Node{
+		ID:         id,
+		DevID:      devid,
+		PlatformID: platformid,
+		IsProvider: isprovider,
+		InfType:    inftype,
+	}
+	return &node, err
+}
+
 //GetNode Retrieve node via device identifier
 func GetNode(ID int) (*Node, error) {
 	var node Node
