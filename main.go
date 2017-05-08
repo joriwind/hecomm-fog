@@ -193,10 +193,15 @@ func main() {
 					{"link", "{\"id\":X,\"provnode\":X,\"reqnode\":X}"}}
 				fmt.Println("Available commands:")
 				for _, command := range commands {
-					if command == "get" {
+					switch command {
+					case "get":
+						fmt.Printf("	%v $ELEMENT(S)\n", command)
+					case "delete":
+						fmt.Printf("	%v $ELEMENT $ID\n", command)
+
+					default:
 						fmt.Printf("	%v $ELEMENT $(OPT)DATA\n", command)
 					}
-					fmt.Printf("	%v $ELEMENT $(OPT)DATA\n", command)
 				}
 				fmt.Println("Available elements:")
 				for _, element := range elements[:] {
