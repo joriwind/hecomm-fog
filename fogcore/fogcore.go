@@ -274,6 +274,24 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 				log.Fatalf("fogcore: handleLinkProtocol: unvalid link request packet: %v, error: %v\n", string(message.Data), err)
 				break
 			}
+
+			//Check if requester node is in the db
+			reqNode, err := dbconnection.FindNode(lc.ReqDevEUI)
+			if err != nil {
+				log.Fatalf("fogcore: handleLinkProtocol: error in locating requesting node: %v, error %v\n", lc, err)
+			}
+			//If not valid id
+			if reqNode.ID == 0 {
+				log.Printf("fogcore: handleLinkProtocol: dit not find requesting node in db: %v\n", message)
+				bytes, err := hecomm.NewResponse(false)
+				if err != nil {
+					log.Fatalf("fogcore: handleLinkProtocol: failed response, error: %v\n", err)
+				}
+				ls.ReqConn.Write(bytes)
+				return
+			}
+
+			//Locating a possible provider node
 			node, err := dbconnection.FindAvailableProviderNode(lc.InfType)
 			if err != nil {
 				log.Fatalf("fogcore: handleLinkProtocol")
@@ -306,9 +324,6 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 			defer ls.ProvConn.Close()
 
 			//Send request for node to provider platform
-			/*bytes, err := json.Marshal(lMDataProvReq{
-				ProvNode: *node,
-			})*/
 			lc.ProvDevEUI = node.DevID
 			bytes, err := lc.GetBytes()
 			if err != nil {
