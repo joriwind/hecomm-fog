@@ -294,7 +294,7 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 			//Locating a possible provider node
 			node, err := dbconnection.FindAvailableProviderNode(lc.InfType)
 			if err != nil {
-				log.Fatalf("fogcore: handleLinkProtocol")
+				log.Fatalf("fogcore: handleLinkProtocol: error in locating provider node: %v, error: %v\n", message, err)
 			}
 			if node.ID == 0 {
 				log.Fatalf("fogcore: handleLinkProtocol: Dit not find suitable provider node! link request: %v\n", string(sP.Data))
