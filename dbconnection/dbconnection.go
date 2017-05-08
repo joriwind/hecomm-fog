@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql" //Driver mysql
 	"github.com/joriwind/hecomm-fog/iotInterface"
 )
 
@@ -26,7 +26,7 @@ type Platform struct {
 //Node Model of a Node in the mysql database
 type Node struct {
 	ID         int
-	DevID      []byte
+	DevID      string
 	PlatformID int
 	IsProvider bool
 	InfType    int
@@ -318,7 +318,7 @@ func FindNode(devID []byte) (*Node, error) {
 
 	row := stmt.QueryRow(devID)
 	var id, platformid, inftype int
-	var devid []byte
+	var devid string
 	var isprovider bool
 	row.Scan(&id, &devid, &platformid, &isprovider, &inftype)
 	node = Node{
@@ -347,7 +347,7 @@ func FindAvailableProviderNode(infType int) (*Node, error) {
 
 	row := stmt.QueryRow(infType)
 	var id, platformid, inftype int
-	var devid []byte
+	var devid string
 	var isprovider bool
 	row.Scan(&id, &devid, &platformid, &isprovider, &inftype)
 	node = Node{
@@ -376,7 +376,7 @@ func GetNode(ID int) (*Node, error) {
 
 	row := stmt.QueryRow(ID)
 	var id, platformid, inftype int
-	var devid []byte
+	var devid string
 	var isprovider bool
 	row.Scan(&id, &devid, &platformid, &isprovider, &inftype)
 	node = Node{
@@ -387,6 +387,42 @@ func GetNode(ID int) (*Node, error) {
 		InfType:    inftype,
 	}
 	return &node, err
+}
+
+//GetNodes Retrieves all nodes
+func GetNodes() (*[]Node, error) {
+	var nodes []Node
+	db, err := sql.Open(dbDriver, dbsource)
+	if err != nil {
+		return &nodes, err
+	}
+	defer db.Close()
+	stmt, err := db.Prepare("SELECT * FROM node")
+	if err != nil {
+		return &nodes, err
+	}
+	defer stmt.Close()
+	rows, err := stmt.Query()
+	if err != nil {
+		return &nodes, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id, platformid, inftype int
+		var devid string
+		var isprovider bool
+		rows.Scan(&id, &devid, &platformid, &isprovider, &inftype)
+		node := Node{
+			ID:         id,
+			DevID:      devid,
+			PlatformID: platformid,
+			IsProvider: isprovider,
+			InfType:    inftype,
+		}
+		nodes = append(nodes, node)
+	}
+	return &nodes, err
 }
 
 //InsertLink Insert a link into the database
@@ -435,6 +471,38 @@ func UpdateLink(l *Link) error {
 		return errors.New("dbconnection: failed to insert node")
 	}
 	return nil
+}
+
+//GetLinks Retrieve all links
+func GetLinks() (*[]Link, error) {
+	var links []Link
+	db, err := sql.Open(dbDriver, dbsource)
+	if err != nil {
+		return &links, err
+	}
+	defer db.Close()
+	stmt, err := db.Prepare("SELECT * FROM link")
+	if err != nil {
+		return &links, err
+	}
+	defer stmt.Close()
+	rows, err := stmt.Query()
+	if err != nil {
+		return &links, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id, provnode, reqnode int
+		rows.Scan(&id, &provnode, &reqnode)
+		link := Link{
+			ID:       id,
+			ProvNode: provnode,
+			ReqNode:  reqnode,
+		}
+		links = append(links, link)
+	}
+	return &links, err
 }
 
 //GetLink Retrieve via one of both's node ID
@@ -512,7 +580,7 @@ func GetDestination(message *iotInterface.ComLinkMessage) (*Node, error) {
 		return nil, err
 	}
 
-	message.Destination = dstnode.DevID
+	message.Destination = []byte(dstnode.DevID)
 
 	return dstnode, nil
 }
