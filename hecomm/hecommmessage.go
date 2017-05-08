@@ -9,6 +9,22 @@ import (
  * hecomm communication definition
  * FPort: 0: DB Command, 10: LinkReq, 50: PK link state, 100: LinkSet, 200: response
  */
+const (
+	FPortDBCommand int = 0
+	FPortLinkReq   int = 10
+	FPortLinkState int = 50
+	FPortLinkSet   int = 100
+	FPortResponse  int = 200
+)
+
+/*
+ *	Definition of valid EType values
+ */
+const (
+	ETypeNode int = iota + 1
+	ETypePlatform
+	ETypeLink
+)
 
 //Message Structure of top message
 type Message struct {
@@ -52,6 +68,13 @@ func NewMessage(buf []byte) (*Message, error) {
 	return &message, nil
 }
 
+//NewResponse Create new response packet
+func NewResponse(result bool) ([]byte, error) {
+	rsp := &Response{OK: result}
+	bytes, err := json.Marshal(rsp)
+	return bytes, err
+}
+
 //GetCommand Convert byte slice of HecommMessage into DBCommand struct
 func (m *Message) GetCommand() (*DBCommand, error) {
 	var command DBCommand
@@ -69,10 +92,10 @@ func (m *DBCommand) GetBytes() ([]byte, error) {
 
 }
 
-//GetLink Convert byte slice of HecommMessage into Link struct
-func (m *Message) GetLink() (*LinkContract, error) {
+//GetLinkContract Convert byte slice of HecommMessage into Link struct
+func (m *Message) GetLinkContract() (*LinkContract, error) {
 	var link LinkContract
-	if m.FPort != 10 || m.FPort != 100 {
+	if m.FPort != FPortLinkReq && m.FPort != FPortLinkSet {
 		return &link, fmt.Errorf("Hecomm message: FPort not equal to response code: %v", m.FPort)
 	}
 	err := json.Unmarshal(m.Data, link)
