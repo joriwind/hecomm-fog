@@ -332,26 +332,6 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 			}
 			ls.ProvConn.Write(bytes)
 
-			//Sending OK response to requester
-			bytes, err = hecomm.NewResponse(true)
-			if err != nil {
-				log.Fatalf("fogcore: handleLinkProtocol: ok tslResponse, error: %v\n", err)
-				return
-			}
-			ls.ReqConn.Write(bytes)
-
-			//Tunnel data from requester to channel requester
-			go func(ch chan []byte, chError chan error, buf []byte) {
-				for {
-					n, err := ls.ReqConn.Read(buf)
-					if err != nil {
-						chError <- err
-						return
-					}
-					ch <- buf[:n]
-				}
-			}(chProv, chError, ls.BufProv)
-
 		case hecomm.FPortLinkState:
 			//Depending on origin of data send to the other
 			if rcvOrigFromReq {
@@ -373,6 +353,38 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 			err = dbconnection.InsertLink(link)
 			if err != nil {
 				log.Fatalf("fogcore: handleLinkProtocol: could not insert link: contract: %v, error: %v\n", link, err)
+			}
+
+		case hecomm.FPortResponse:
+			rsp, err := message.GetResponse()
+			if err != nil {
+				log.Fatalf("fogcore: handleLinkProtocol: invalid response message: %v, error %v\n", message, err)
+			}
+			//TODO: response in different cases, depending on state of connection
+			if rsp.OK && !rcvOrigFromReq { //Response to request for prov node
+
+				//Sending OK response to requester
+				bytes, err := hecomm.NewResponse(true)
+				if err != nil {
+					log.Fatalf("fogcore: handleLinkProtocol: ok tslResponse, error: %v\n", err)
+					return
+				}
+				ls.ReqConn.Write(bytes)
+
+				//Tunnel data from requester to channel requester
+				go func(ch chan []byte, chError chan error, buf []byte) {
+					for {
+						n, err := ls.ReqConn.Read(buf)
+						if err != nil {
+							chError <- err
+							return
+						}
+						ch <- buf[:n]
+					}
+				}(chProv, chError, ls.BufProv)
+			} else {
+				//TODO: in case of not valid response, search for other provider
+				log.Fatalf("fogcore: handleLinkProtocol: NOT OK response, what to do?\n")
 			}
 
 		default:
