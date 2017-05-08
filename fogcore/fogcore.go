@@ -324,7 +324,7 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 			defer ls.ProvConn.Close()
 
 			//Send request for node to provider platform
-			lc.ProvDevEUI = node.DevID
+			lc.ProvDevEUI = []byte(node.DevID)
 			bytes, err := lc.GetBytes()
 			if err != nil {
 				log.Fatalf("fogcore: handleLinkProtocol: failed to send node request to provider platform, error: %v\n", err)

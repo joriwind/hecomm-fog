@@ -13,10 +13,10 @@ type Client struct {
 }
 
 //NewClient Create connection with destination
-func NewClient(protocol string, destinationAddress []byte) (*Client, error) {
+func NewClient(protocol string, destinationAddress string) (*Client, error) {
 	client := Client{
 		protocol: protocol,
-		dstAddr:  string(destinationAddress),
+		dstAddr:  destinationAddress,
 		conn:     nil,
 	}
 
