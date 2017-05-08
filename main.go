@@ -186,6 +186,23 @@ func main() {
 					fmt.Printf("Not a valid element: %v\n", subcommand[0])
 				}
 
+			case "help":
+				commands := []string{"insert", "delete", "get"}
+				elements := [][]string{{"node", "{\"id\":X,\"devid\":\"XXXX\",\"platformid\":X,\"isprovider\":bool,\"inftype\":X}"},
+					{"platform", "{\"id\":X,\"address\":\"XXXX\",\"tlscert\":\"XXX\",\"tlskey\":\"XXXX\",\"citype\":X,\"ciargs\":{}}"},
+					{"link", "{\"id\":X,\"provnode\":X,\"reqnode\":X}"}}
+				fmt.Println("Available commands:")
+				for _, command := range commands {
+					if command == "get" {
+						fmt.Printf("	%v $ELEMENT $(OPT)DATA\n", command)
+					}
+					fmt.Printf("	%v $ELEMENT $(OPT)DATA\n", command)
+				}
+				fmt.Println("Available elements:")
+				for _, element := range elements[:] {
+					fmt.Printf("	%v	//example: %v\n", element[0], element[1])
+				}
+
 			case "":
 			default:
 				fmt.Printf("Did not understand command: %v\n", command[0])
