@@ -27,7 +27,7 @@ type Fogcore struct {
 	opt          Options
 	controlCH    chan controlCHMessage
 	ciCommonCH   chan iotInterface.ComLinkMessage
-	ciCollection []*ci
+	ciCollection []ci
 }
 
 //Options Defines possible options to pass along with Fogcore object
@@ -86,16 +86,17 @@ func (f *Fogcore) Start() error {
 		log.Fatalf("fogcore: something went wrong in retrieving interfaces: %v", err)
 	}
 	//Create access to the will be routines of iot interfaces
-	f.ciCollection = make([]*ci, len(platforms))
+	f.ciCollection = make([]ci, len(*platforms))
 	f.ciCommonCH = make(chan iotInterface.ComLinkMessage, 20)
 	//Create the communication to the iot interface thread
 
 	//Startup already known interfaces
-	for index, pl := range platforms {
+	for index, pl := range *platforms {
 		channel := make(chan iotInterface.ComLinkMessage, 5)
 		ctx, cancel := context.WithCancel(f.ctx)
-		f.ciCollection[index] = &ci{Platform: pl, Channel: channel, Ctx: ctx, Cancel: cancel}
-		f.startInterface(f.ciCollection[index])
+		face := ci{Platform: &pl, Channel: channel, Ctx: ctx, Cancel: cancel}
+		f.ciCollection = append(f.ciCollection, face)
+		f.startInterface(&f.ciCollection[index])
 	}
 
 	for {
@@ -427,9 +428,9 @@ func (f *Fogcore) executeCommand(command *hecomm.DBCommand) error {
 			channel := make(chan iotInterface.ComLinkMessage, 5)
 			ctx, cancel := context.WithCancel(f.ctx)
 			//Add new interface to end of collection
-			f.ciCollection = append(f.ciCollection, &ci{Platform: &platform, Channel: channel, Ctx: ctx, Cancel: cancel})
+			f.ciCollection = append(f.ciCollection, ci{Platform: &platform, Channel: channel, Ctx: ctx, Cancel: cancel})
 			//Startup last added interface
-			f.startInterface(f.ciCollection[len(f.ciCollection)-1])
+			f.startInterface(&f.ciCollection[len(f.ciCollection)-1])
 
 		case false: //Stop a platform
 			for index, intface := range f.ciCollection {

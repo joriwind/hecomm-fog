@@ -157,22 +157,22 @@ func GetPlatform(id int) (*Platform, error) {
 }
 
 //GetPlatforms Retrieve all platforms
-func GetPlatforms() ([]*Platform, error) {
-	var platforms []*Platform
+func GetPlatforms() (*[]Platform, error) {
+	var platforms []Platform
 	db, err := sql.Open(dbDriver, dbsource)
 	if err != nil {
-		return platforms, err
+		return &platforms, err
 	}
 	defer db.Close()
 	stmt, err := db.Prepare("SELECT * FROM platform")
 	if err != nil {
-		return platforms, err
+		return &platforms, err
 	}
 	defer stmt.Close()
 
 	rows, err := stmt.Query()
 	if err != nil {
-		return platforms, err
+		return &platforms, err
 	}
 	defer rows.Close()
 
@@ -181,23 +181,24 @@ func GetPlatforms() ([]*Platform, error) {
 		var id, citype int
 		var address, tlscert, tlskey, ciargs string
 		if err := rows.Scan(&id, &address, &tlscert, &tlskey, &citype, &ciargs); err != nil {
-			return platforms, err
+			return &platforms, err
 		}
 		var data map[string]interface{}
 		if err := json.Unmarshal([]byte(ciargs), &data); err != nil {
 			fmt.Printf("Platform from query: %v, %v, %v, %v, %v, %v\n", id, citype, address, tlscert, tlskey, ciargs)
-			return platforms, err
+			return &platforms, err
 		}
-		platforms = append(platforms, &Platform{
+		platform := Platform{
 			ID:      id,
 			Address: address,
 			TLSCert: tlscert,
 			TLSKey:  tlskey,
 			CIType:  citype,
 			CIArgs:  data,
-		})
+		}
+		platforms = append(platforms, platform)
 	}
-	return platforms, nil
+	return &platforms, nil
 }
 
 //DeletePlatform Delete platform via platform id
