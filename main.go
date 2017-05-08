@@ -61,9 +61,11 @@ func main() {
 			//Split line into 2 parts, the command and OPTIONALY data
 			command := strings.SplitN(line, " ", 2)
 			switch command[0] {
+
 			case "exit":
 				cancel()
 				return
+
 			case "insert":
 				subcommand := strings.SplitN(command[1], " ", 2)
 				switch subcommand[0] {
@@ -158,6 +160,7 @@ func main() {
 				default:
 					fmt.Printf("Not a valid element: %v\n", subcommand[0])
 				}
+
 			case "get":
 				subcommand := strings.SplitN(command[1], " ", 2)
 				switch subcommand[0] {
@@ -191,6 +194,7 @@ func main() {
 				elements := [][]string{{"node", "{\"id\":X,\"devid\":\"XXXX\",\"platformid\":X,\"isprovider\":bool,\"inftype\":X}"},
 					{"platform", "{\"id\":X,\"address\":\"XXXX\",\"tlscert\":\"XXX\",\"tlskey\":\"XXXX\",\"citype\":X,\"ciargs\":{}}"},
 					{"link", "{\"id\":X,\"provnode\":X,\"reqnode\":X}"}}
+				fmt.Println("HECOMM-FOG")
 				fmt.Println("Available commands:")
 				for _, command := range commands {
 					switch command {
