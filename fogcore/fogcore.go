@@ -49,8 +49,12 @@ type controlCHMessage struct {
 	ResponseCH chan bool
 }
 
+/*
+ *	State of hecomm protocol
+ * Linked: state of hecomm protocol: 0 if not found partner, 1 if found partner
+ */
 type linkState struct {
-	State    int
+	LC       hecomm.LinkContract
 	ReqConn  net.Conn
 	ProvConn net.Conn
 	BufReq   []byte
@@ -234,10 +238,13 @@ func (f *Fogcore) handleTLSConn(conn net.Conn) {
 }
 
 func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
+	//Buffers
 	var message *hecomm.Message
 	var err error
 	var rcv []byte
 	rcvOrigFromReq := true
+
+	//Init
 	rcv = sP.Data
 	chReq := make(chan []byte, 10)
 	chProv := make(chan []byte, 10)
@@ -258,8 +265,9 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 		}
 	}(chReq, chError, ls.BufReq)
 
+	//Keep running while protocol is active
 	for {
-
+		//Translate packet
 		message, err = hecomm.NewMessage(rcv)
 		if err != nil {
 			log.Fatalf("fogcore: handleLinkProtocol: unable to unmarshal linkmessage: %v\n", err)
@@ -269,7 +277,7 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 		switch message.FPort {
 
 		case hecomm.FPortLinkReq:
-			//TODO: check requesting node, in db?
+			//TODO: check requesting node and platform, in db?
 			lc, err := message.GetLinkContract()
 			if err != nil {
 				log.Fatalf("fogcore: handleLinkProtocol: unvalid link request packet: %v, error: %v\n", string(message.Data), err)
@@ -292,12 +300,15 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 				return
 			}
 
+			//Ready to find partner
+			ls.LC = *lc
+
 			//Locating a possible provider node
-			node, err := dbconnection.FindAvailableProviderNode(lc.InfType)
+			tmpProvnode, err := dbconnection.FindAvailableProviderNode(lc.InfType)
 			if err != nil {
 				log.Fatalf("fogcore: handleLinkProtocol: error in locating provider node: %v, error: %v\n", message, err)
 			}
-			if node.ID == 0 {
+			if tmpProvnode.ID == 0 {
 				log.Fatalf("fogcore: handleLinkProtocol: Dit not find suitable provider node! link request: %v\n", string(sP.Data))
 				//Sending failed response
 				bytes, err := hecomm.NewResponse(false)
@@ -307,7 +318,8 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 				ls.ReqConn.Write(bytes)
 				return
 			}
-			platform, err := dbconnection.GetPlatform(node.ID)
+
+			platform, err := dbconnection.GetPlatform(tmpProvnode.ID)
 			if err != nil {
 				log.Fatalf("fogcore: handleLinkProtocol: getplatform of available node failed: %v\n", err)
 			}
@@ -324,14 +336,26 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 			}
 			defer ls.ProvConn.Close()
 
-			//Send request for node to provider platform
-			lc.ProvDevEUI = []byte(node.DevID)
-			bytes, err := lc.GetBytes()
+			//Send contract for node to provider platform
+			ls.LC.ProvDevEUI = []byte(tmpProvnode.DevID)
+			bytes, err := ls.LC.GetBytes()
 			if err != nil {
 				log.Fatalf("fogcore: handleLinkProtocol: failed to send node request to provider platform, error: %v\n", err)
 				return
 			}
 			ls.ProvConn.Write(bytes)
+
+			//Tunnel data from provider to channel provider
+			go func(ch chan []byte, chError chan error, buf []byte) {
+				for {
+					n, err := ls.ProvConn.Read(buf)
+					if err != nil {
+						chError <- err
+						return
+					}
+					ch <- buf[:n]
+				}
+			}(chProv, chError, ls.BufProv)
 
 		case hecomm.FPortLinkState:
 			//Depending on origin of data send to the other
@@ -342,18 +366,23 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 			}
 
 		case hecomm.FPortLinkSet:
+			//TODO:Check if memorised LC is similar to received Linkcontract
 			lc, err := message.GetLinkContract()
 			if err != nil {
 				log.Fatalf("fogcore: handleLinkProtocol: unvalid data set packet: %v, error: %v\n", string(message.Data), err)
 				return
 			}
-			link, err := lc.ConvertToLink()
-			if err != nil {
-				log.Fatalf("fogcore: handleLinkProtocol: could not convert contract to link: contract: %v, error: %v\n", lc, err)
-			}
-			err = dbconnection.InsertLink(link)
-			if err != nil {
-				log.Fatalf("fogcore: handleLinkProtocol: could not insert link: contract: %v, error: %v\n", link, err)
+			//If status linked and received from requester --> send contract to provider
+			if lc.Linked == true && rcvOrigFromReq {
+				//Send contract to provider
+				ls.LC.Linked = true
+				bytes, err := ls.LC.GetBytes()
+				if err != nil {
+					log.Fatalf("fogcore: handleLinkProtocol: linkcontract to bytes, error: %v\n", err)
+					return
+
+				}
+				ls.ProvConn.Write(bytes)
 			}
 
 		case hecomm.FPortResponse:
@@ -361,31 +390,48 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 			if err != nil {
 				log.Fatalf("fogcore: handleLinkProtocol: invalid response message: %v, error %v\n", message, err)
 			}
-			//TODO: response in different cases, depending on state of connection
-			if rsp.OK && !rcvOrigFromReq { //Response to request for prov node
+			switch ls.LC.Linked {
+			case false:
+				//Found valid partner or not!
+				if rsp.OK && !rcvOrigFromReq { //Response to request for prov node
 
-				//Sending OK response to requester
-				bytes, err := hecomm.NewResponse(true)
-				if err != nil {
-					log.Fatalf("fogcore: handleLinkProtocol: ok tslResponse, error: %v\n", err)
+					//Sending linkcontract to requester
+					bytes, err := ls.LC.GetBytes()
+					if err != nil {
+						log.Fatalf("fogcore: handleLinkProtocol: ok tslResponse, error: %v\n", err)
+						return
+					}
+					ls.ReqConn.Write(bytes)
+
+				} else {
+					//TODO: in case of not valid response, search for other provider!!
+					log.Fatalf("fogcore: handleLinkProtocol: NOT OK response, what to do? State: %v\n", ls)
+				}
+			case true:
+				//Connection is set and key was generated!
+				if rsp.OK && !rcvOrigFromReq {
+
+					//Sending OK response to requester
+					bytes, err := hecomm.NewResponse(true)
+					if err != nil {
+						log.Fatalf("fogcore: handleLinkProtocol: ok tslResponse, error: %v\n", err)
+						return
+					}
+					ls.ReqConn.Write(bytes)
+					link, err := ls.LC.ConvertToLink()
+					if err != nil {
+						log.Fatalf("fogcore: handleLinkProtocol: could not convert contract to link: contract: %v, error: %v\n", ls.LC, err)
+					}
+					err = dbconnection.InsertLink(link)
+					if err != nil {
+						log.Fatalf("fogcore: handleLinkProtocol: could not insert link: contract: %v, error: %v\n", link, err)
+					}
+					//Link is set!
 					return
 				}
-				ls.ReqConn.Write(bytes)
-
-				//Tunnel data from requester to channel requester
-				go func(ch chan []byte, chError chan error, buf []byte) {
-					for {
-						n, err := ls.ReqConn.Read(buf)
-						if err != nil {
-							chError <- err
-							return
-						}
-						ch <- buf[:n]
-					}
-				}(chProv, chError, ls.BufProv)
-			} else {
 				//TODO: in case of not valid response, search for other provider
-				log.Fatalf("fogcore: handleLinkProtocol: NOT OK response, what to do?\n")
+				log.Fatalf("fogcore: handleLinkProtocol: NOT OK response, what to do? State: %v\n", ls)
+
 			}
 
 		default:
