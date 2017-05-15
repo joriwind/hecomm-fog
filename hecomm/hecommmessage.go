@@ -58,8 +58,8 @@ const (
 	eTypeLink
 )
 
-//NewMessage Convert byte slice to HecommMessage
-func NewMessage(buf []byte) (*Message, error) {
+//GetMessage Convert byte slice to HecommMessage
+func GetMessage(buf []byte) (*Message, error) {
 	var message Message
 	err := json.Unmarshal(buf, message)
 	if err != nil {
@@ -68,10 +68,43 @@ func NewMessage(buf []byte) (*Message, error) {
 	return &message, nil
 }
 
-//NewResponse Create new response packet
+//NewMessage Create own Hecomm message
+func NewMessage(fPort int, data []byte) ([]byte, error) {
+	var message Message
+	//Compile message
+	message.FPort = fPort
+	message.Data = data
+	bytes, err := json.Marshal(message)
+	return bytes, err
+}
+
+//NewResponse Create new response submessage
 func NewResponse(result bool) ([]byte, error) {
 	rsp := &Response{OK: result}
 	bytes, err := json.Marshal(rsp)
+	return bytes, err
+}
+
+//NewDBCommand create new dbcommand submessage
+func NewDBCommand(insert bool, eType int, data []byte) ([]byte, error) {
+	dbcommand := DBCommand{
+		Insert: insert,
+		EType:  eType,
+		Data:   data,
+	}
+	bytes, err := json.Marshal(dbcommand)
+	return bytes, err
+}
+
+//NewLinkContract Create new LinkContract submessage
+func NewLinkContract(reqdev []byte, provdev []byte, inftype int, linked bool) ([]byte, error) {
+	lc := LinkContract{
+		InfType:    inftype,
+		Linked:     linked,
+		ProvDevEUI: provdev,
+		ReqDevEUI:  reqdev,
+	}
+	bytes, err := json.Marshal(lc)
 	return bytes, err
 }
 
