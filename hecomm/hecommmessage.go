@@ -78,14 +78,19 @@ func NewMessage(fPort int, data []byte) ([]byte, error) {
 	return bytes, err
 }
 
-//NewResponse Create new response submessage
+//NewResponse Create new response message
 func NewResponse(result bool) ([]byte, error) {
 	rsp := &Response{OK: result}
 	bytes, err := json.Marshal(rsp)
+	if err != nil {
+		return bytes, err
+	}
+	message := Message{FPort: FPortResponse, Data: bytes}
+	bytes, err = json.Marshal(message)
 	return bytes, err
 }
 
-//NewDBCommand create new dbcommand submessage
+//NewDBCommand create new dbcommand message
 func NewDBCommand(insert bool, eType int, data []byte) ([]byte, error) {
 	dbcommand := DBCommand{
 		Insert: insert,
@@ -93,11 +98,16 @@ func NewDBCommand(insert bool, eType int, data []byte) ([]byte, error) {
 		Data:   data,
 	}
 	bytes, err := json.Marshal(dbcommand)
+	if err != nil {
+		return bytes, err
+	}
+	message := Message{FPort: FPortDBCommand, Data: bytes}
+	bytes, err = json.Marshal(message)
 	return bytes, err
 }
 
-//NewLinkContract Create new LinkContract submessage
-func NewLinkContract(reqdev []byte, provdev []byte, inftype int, linked bool) ([]byte, error) {
+//NewLinkContract Create new LinkContract message
+func NewLinkContract(fPort int, reqdev []byte, provdev []byte, inftype int, linked bool) ([]byte, error) {
 	lc := LinkContract{
 		InfType:    inftype,
 		Linked:     linked,
@@ -105,6 +115,11 @@ func NewLinkContract(reqdev []byte, provdev []byte, inftype int, linked bool) ([
 		ReqDevEUI:  reqdev,
 	}
 	bytes, err := json.Marshal(lc)
+	if err != nil {
+		return bytes, err
+	}
+	message := Message{FPort: fPort, Data: bytes}
+	bytes, err = json.Marshal(message)
 	return bytes, err
 }
 
