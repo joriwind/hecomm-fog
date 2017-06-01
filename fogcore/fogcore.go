@@ -13,11 +13,12 @@ import (
 
 	"encoding/json"
 
+	"github.com/joriwind/hecomm-api/hecomm"
 	"github.com/joriwind/hecomm-fog/dbconnection"
-	"github.com/joriwind/hecomm-fog/hecomm"
 	"github.com/joriwind/hecomm-fog/iotInterface"
 	"github.com/joriwind/hecomm-fog/iotInterface/cilorawan"
 	"github.com/joriwind/hecomm-fog/iotInterface/cisixlowpan"
+	"github.com/joriwind/hecomm-fog/mapping"
 	"google.golang.org/grpc"
 )
 
@@ -420,7 +421,7 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 						return
 					}
 					ls.ReqConn.Write(bytes)
-					link, err := ls.LC.ConvertToLink()
+					link, err := mapping.ConvertToLink(ls.LC)
 					if err != nil {
 						log.Fatalf("fogcore: handleLinkProtocol: could not convert contract to link: contract: %v, error: %v\n", ls.LC, err)
 					}

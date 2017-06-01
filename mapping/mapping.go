@@ -1,9 +1,12 @@
-package hecomm
+package mapping
 
-import "github.com/joriwind/hecomm-fog/dbconnection"
+import (
+	"github.com/joriwind/hecomm-api/hecomm"
+	"github.com/joriwind/hecomm-fog/dbconnection"
+)
 
 //ConvertToLink Search for nodes in the database and create Link element
-func (lc LinkContract) ConvertToLink() (*dbconnection.Link, error) {
+func ConvertToLink(lc hecomm.LinkContract) (*dbconnection.Link, error) {
 	var link dbconnection.Link
 	prov, err := dbconnection.FindNode(lc.ProvDevEUI)
 	if err != nil {
