@@ -466,11 +466,19 @@ func (f *Fogcore) executeCommand(command *hecomm.DBCommand) error {
 	switch command.EType {
 	case hecomm.ETypePlatform: //Start new platform
 		//Unravel data from command packet into platform element
-		var platform dbconnection.Platform
-		err := json.Unmarshal(command.Data, platform)
+		var element hecomm.DBCPlatform
+		err := json.Unmarshal(command.Data, element)
 		if err != nil {
 			log.Fatalf("fogcore: executeCommand: unable to unmarshal platform from bytes: data: %v, err: %v\n", command.Data, err)
+			break
 		}
+
+		platform := dbconnection.Platform{
+			Address: element.Address,
+			CIType:  int(element.CI),
+			CIArgs:  element.CIArgs,
+		}
+
 		//Depending on insert bool, insert or delete
 		switch command.Insert {
 		case true:
@@ -494,22 +502,52 @@ func (f *Fogcore) executeCommand(command *hecomm.DBCommand) error {
 
 	case hecomm.ETypeNode:
 		var node dbconnection.Node
-		err := json.Unmarshal(command.Data, node)
+		var element hecomm.DBCNode
+		var platformID int
+		err := json.Unmarshal(command.Data, element)
 		if err != nil {
 			log.Fatalf("fogcore: executeCommand: unable to unmarshal node from bytes: data: %v, err: %v\n", command.Data, err)
+			break
 		}
+		pls, err := dbconnection.GetPlatforms()
+		if err != nil {
+			log.Fatalf("Could not retrieve platforms from db: %v\n", err)
+			break
+		}
+		for _, pl := range *pls {
+			if pl.Address == element.PlAddress {
+				if pl.CIType == int(element.PlType) {
+					platformID = pl.ID
+					break
+				}
+			}
+		}
+		if platformID == 0 {
+			log.Fatalf("Could not find platform for node!\n")
+			break
+		}
+
+		node = dbconnection.Node{
+			DevID:      string(element.DevEUI),
+			InfType:    element.InfType,
+			IsProvider: element.IsProvider,
+			PlatformID: platformID,
+		}
+
 		//Depending on insert bool, insert or delete
 		switch command.Insert {
 		case true:
 			err := dbconnection.InsertNode(&node)
 			if err != nil {
 				log.Fatalf("fogcore: executeCommand: unable to insert node into db: node: %v, error: %v\n", node, err)
+				break
 			}
 
 		case false:
 			err := dbconnection.DeleteNode(node.ID)
 			if err != nil {
 				log.Fatalf("fogcore: executeCommand: unable to delete node from db: node: %v, error: %v\n", node, err)
+				break
 			}
 		}
 
