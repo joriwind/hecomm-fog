@@ -189,7 +189,7 @@ func (f *Fogcore) handleTLSConn(conn net.Conn) {
 		}
 		//var m tlsMessage
 		//err = json.Unmarshal(buf[0:n], m)
-		m, err := hecomm.NewMessage(buf[:n])
+		m, err := hecomm.GetMessage(buf[:n])
 		if err != nil {
 			log.Fatalf("fogcore: handleTLSConn: NewMessage: error: %v\n", err)
 		}
@@ -232,6 +232,8 @@ func (f *Fogcore) handleTLSConn(conn net.Conn) {
 			conn.Write(rsp)
 			//Stop connection
 			return
+		default:
+			log.Printf("Unexpected FPort: %v\n", m.FPort)
 		}
 
 	}
@@ -268,7 +270,7 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 	//Keep running while protocol is active
 	for {
 		//Translate packet
-		message, err = hecomm.NewMessage(rcv)
+		message, err = hecomm.GetMessage(rcv)
 		if err != nil {
 			log.Fatalf("fogcore: handleLinkProtocol: unable to unmarshal linkmessage: %v\n", err)
 		}
