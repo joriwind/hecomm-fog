@@ -18,27 +18,34 @@ import (
 type Server struct {
 	ctx     context.Context
 	comlink chan iotInterface.ComLinkMessage
-	port    string
+	host    string
 	options ServerOptions
 }
 
 //ServerOptions Options for the cisixlowpan server
 type ServerOptions struct {
+	host string
 }
 
 //NewServer Setup the cisixlowpan server
 func NewServer(ctx context.Context, comlink chan iotInterface.ComLinkMessage, opt ServerOptions) *Server {
-	return &Server{
-		ctx:     ctx,
-		comlink: comlink,
-		port:    ":5656",
-		options: opt,
+	var server Server
+	server.ctx = ctx
+	server.comlink = comlink
+
+	if opt.host != "" {
+		server.host = opt.host
+	} else {
+		server.host = "[::1]:5683"
 	}
+
+	server.options = opt
+	return &server
 }
 
 //Start Create socket and start listening
 func (s *Server) Start() error {
-	address, err := net.ResolveUDPAddr("udp6", s.port)
+	address, err := net.ResolveUDPAddr("udp6", s.host)
 	if err != nil {
 		log.Fatalf("cisixlowpan: unable to resolve UDP address: err: %v\n", err)
 		return err
