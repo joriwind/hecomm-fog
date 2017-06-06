@@ -6,26 +6,24 @@ package cilorawan
 //TODO: implement functions
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
 	"log"
 	"net"
 
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 
 	//"github.com/brocaar/lora-app-server/internal/common"
 
 	"time"
 
-	"encoding/json"
-
-	"fmt"
-
 	as "github.com/joriwind/hecomm-fog/api/as"
 	"github.com/joriwind/hecomm-fog/iotInterface"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/keepalive"
 )
 
 // ApplicationServerAPI implements the as.ApplicationServerServer interface.
@@ -37,73 +35,18 @@ type ApplicationServerAPI struct {
 }
 
 // NewApplicationServerAPI returns a new ApplicationServerAPI.
-func NewApplicationServerAPI(ctx context.Context, comlink chan iotInterface.ComLinkMessage, opt ...grpc.ServerOption) *ApplicationServerAPI {
+func NewApplicationServerAPI(ctx context.Context, comlink chan iotInterface.ComLinkMessage) *ApplicationServerAPI {
+	//Set static config
+	var nsOpts []grpc.ServerOption
+	nsOpts = append(nsOpts, grpc.Creds(mustGetTransportCredentials(CILorawanCert, CILorawanKey, CILorawanCA, true)))
+
 	return &ApplicationServerAPI{
 		ctx:     ctx,
 		comlink: comlink,
 		port:    ":8000",
-		options: opt,
+		options: nsOpts,
 	}
 
-}
-
-//ConvertArgsToUplinkOptions Convert the stored general interface options from database into usable options for lorawan server
-func ConvertArgsToUplinkOptions(args interface{}, opt *[]grpc.ServerOption) error {
-	//Convert to usable format
-	argsBytes, err := json.Marshal(args)
-	if err != nil {
-		return err
-	}
-	var input map[string]interface{}
-	err = json.Unmarshal(argsBytes, input)
-	if err != nil {
-		return err
-	}
-
-	//Loop over all available options
-	for index, value := range input {
-		switch index {
-		case "Creds":
-			bytes, err := json.Marshal(value)
-			if err != nil {
-				return err
-			}
-			var option credentials.TransportCredentials
-			err = json.Unmarshal(bytes, &option)
-			if err != nil {
-				return err
-			}
-			*opt = append(*opt, grpc.Creds(option))
-
-		case "KeepaliveParams":
-			bytes, err := json.Marshal(value)
-			if err != nil {
-				return err
-			}
-			var option keepalive.ServerParameters
-			err = json.Unmarshal(bytes, &option)
-			if err != nil {
-				return err
-			}
-			*opt = append(*opt, grpc.KeepaliveParams(option))
-
-		case "KeepaliveEnforcementPolicy":
-			bytes, err := json.Marshal(value)
-			if err != nil {
-				return err
-			}
-			var option keepalive.EnforcementPolicy
-			err = json.Unmarshal(bytes, &option)
-			if err != nil {
-				return err
-			}
-			*opt = append(*opt, grpc.KeepaliveEnforcementPolicy(option))
-
-		default:
-			return fmt.Errorf("cilorawan: ConvertARgsToOptions: unkown ServerOption: %v: %v", index, value)
-		}
-	}
-	return nil
 }
 
 //StartServer creates a new server
@@ -176,4 +119,35 @@ func (a *ApplicationServerAPI) HandleError(ctx context.Context, req *as.HandleEr
 	log.Println("cilorawan: HandleError request???")
 
 	return nil, nil
+}
+
+func mustGetTransportCredentials(tlsCert, tlsKey, caCert string, verifyClientCert bool) credentials.TransportCredentials {
+	var caCertPool *x509.CertPool
+	cert, err := tls.LoadX509KeyPair(tlsCert, tlsKey)
+	if err != nil {
+		log.Fatalf("load key-pair error: %s\n", err)
+	}
+
+	if caCert != "" {
+		rawCaCert, err := ioutil.ReadFile(caCert)
+		if err != nil {
+			log.Fatalf("load ca cert error: %s\n", err)
+		}
+
+		caCertPool = x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(rawCaCert)
+	}
+
+	if verifyClientCert {
+		return credentials.NewTLS(&tls.Config{
+			Certificates: []tls.Certificate{cert},
+			RootCAs:      caCertPool,
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+		})
+	} else {
+		return credentials.NewTLS(&tls.Config{
+			Certificates: []tls.Certificate{cert},
+			RootCAs:      caCertPool,
+		})
+	}
 }

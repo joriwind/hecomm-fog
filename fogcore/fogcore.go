@@ -19,7 +19,6 @@ import (
 	"github.com/joriwind/hecomm-fog/iotInterface/cilorawan"
 	"github.com/joriwind/hecomm-fog/iotInterface/cisixlowpan"
 	"github.com/joriwind/hecomm-fog/mapping"
-	"google.golang.org/grpc"
 )
 
 //Fogcore Struct
@@ -476,7 +475,6 @@ func (f *Fogcore) executeCommand(command *hecomm.DBCommand) error {
 		platform := dbconnection.Platform{
 			Address: element.Address,
 			CIType:  int(element.CI),
-			CIArgs:  element.CIArgs,
 		}
 
 		//Depending on insert bool, insert or delete
@@ -567,12 +565,8 @@ func (f *Fogcore) startInterface(iot *ci) error {
 	switch iot.Platform.CIType {
 	case iotInterface.Lorawan:
 
-		//Convert general mapping to cilorawan Server Options
-		var args []grpc.ServerOption
-		cilorawan.ConvertArgsToUplinkOptions(iot.Platform.CIArgs["uplink"], &args)
-
 		//args := (grpc.ServerOption)pl.CIArgs
-		lorawanapi := cilorawan.NewApplicationServerAPI(iot.Ctx, iot.Channel, args...)
+		lorawanapi := cilorawan.NewApplicationServerAPI(iot.Ctx, iot.Channel)
 
 		//Start the cilorawan
 		go func() {
@@ -590,10 +584,7 @@ func (f *Fogcore) startInterface(iot *ci) error {
 	case iotInterface.Sixlowpan:
 		//Create the communication to the iot interface thread
 
-		var args cisixlowpan.ServerOptions
-		cisixlowpan.ConvertArgsToUplinkOptions(iot.Platform.CIArgs["uplink"], &args)
-
-		sixlowpanServer := cisixlowpan.NewServer(iot.Ctx, iot.Channel, args)
+		sixlowpanServer := cisixlowpan.NewServer(iot.Ctx, iot.Channel)
 
 		//Start the cilorawan
 		go func() {
@@ -632,18 +623,11 @@ func (f *Fogcore) handleCIMessage(clm *iotInterface.ComLinkMessage) error {
 	//Send to destination node
 	switch platform.CIType {
 	case iotInterface.Lorawan:
-		var opt []grpc.DialOption
-		//Get interface options for downlink
-		err := cilorawan.ConvertArgsToDownlinkOption(platform.CIArgs["downlink"], &opt)
-		if err != nil {
-			log.Fatalf("focore: cilorawan: downlink conversion failed: options: %v/n", platform.CIArgs["downlink"])
-			return err
-		}
 
 		//Create client, to send the message
-		client, err := cilorawan.NewNetworkClient(context.Background(), platform.CIArgs["downlinkAddress"].(string), opt...)
+		client, err := cilorawan.NewNetworkClient(context.Background(), cilorawan.NSAddress)
 		if err != nil {
-			log.Fatalf("fogcore: cilorawan: creation of newnetworkclient failed! address: %v options: %v\n", platform.CIArgs["downlinkAddress"].(string), opt)
+			log.Fatalf("fogcore: cilorawan: creation of newnetworkclient failed! address: %v\n", "")
 			return err
 		}
 		defer client.Close()

@@ -2,8 +2,6 @@ package cisixlowpan
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 
 	"net"
 
@@ -28,18 +26,13 @@ type ServerOptions struct {
 }
 
 //NewServer Setup the cisixlowpan server
-func NewServer(ctx context.Context, comlink chan iotInterface.ComLinkMessage, opt ServerOptions) *Server {
+func NewServer(ctx context.Context, comlink chan iotInterface.ComLinkMessage) *Server {
 	var server Server
 	server.ctx = ctx
 	server.comlink = comlink
 
-	if opt.host != "" {
-		server.host = opt.host
-	} else {
-		server.host = "[::1]:5683"
-	}
+	server.host = "[::1]:5683"
 
-	server.options = opt
 	return &server
 }
 
@@ -84,28 +77,4 @@ func (s *Server) handlePacket(buf []byte, addr net.Addr) {
 	}
 
 	s.comlink <- message
-}
-
-//ConvertArgsToUplinkOptions Convert the stored general interface options from database into usable options for sixlowpan server
-func ConvertArgsToUplinkOptions(args interface{}, opt *ServerOptions) error {
-	//Convert to usable format
-	argsBytes, err := json.Marshal(args)
-	if err != nil {
-		return err
-	}
-	var input map[string]interface{}
-	err = json.Unmarshal(argsBytes, input)
-	if err != nil {
-		return err
-	}
-
-	//Loop over all available options
-	for index, value := range input {
-		switch index {
-
-		default:
-			return fmt.Errorf("cilorawan: ConvertARgsToOptions: unkown ServerOption: %v: %v", index, value)
-		}
-	}
-	return nil
 }

@@ -2,7 +2,6 @@ package dbconnection
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -20,7 +19,6 @@ type Platform struct {
 	TLSCert string
 	TLSKey  string
 	CIType  int
-	CIArgs  map[string]interface{}
 }
 
 //Node Model of a Node in the mysql database
@@ -53,20 +51,14 @@ func InsertPlatform(pl *Platform) error {
 	defer db.Close()
 
 	//Prepare insert query
-	stmt, err := db.Prepare("INSERT platform SET address=?, citype=?, ciargs=?, tlscert=?, tlskey=?")
+	stmt, err := db.Prepare("INSERT platform SET address=?, citype=?, tlscert=?, tlskey=?")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	//Create JSON string
-	jsonBytes, err := json.Marshal(pl.CIArgs)
-	if err != nil {
-		return err
-	}
-
 	//Execute insert
-	res, err := stmt.Exec(pl.Address, pl.CIType, string(jsonBytes), pl.TLSCert, pl.TLSKey)
+	res, err := stmt.Exec(pl.Address, pl.CIType, pl.TLSCert, pl.TLSKey)
 	if err != nil {
 		return err
 	}
@@ -77,7 +69,7 @@ func InsertPlatform(pl *Platform) error {
 		return err
 	}
 	pl.ID = int(i)
-	log.Printf("Inserted platform: Address: %v, ciargs: %v, citype: %v, id: %v, tlscert: %v, tlskey: %v", pl.Address, pl.CIArgs, pl.CIType, pl.ID, pl.TLSCert, pl.TLSKey)
+	log.Printf("Inserted platform: Address: %v, citype: %v, id: %v, tlscert: %v, tlskey: %v", pl.Address, pl.CIType, pl.ID, pl.TLSCert, pl.TLSKey)
 	return nil
 
 }
@@ -89,19 +81,13 @@ func UpdatePlatform(pl *Platform) error {
 		return err
 	}
 	defer db.Close()
-	stmt, err := db.Prepare("UPDATE platform SET address=?, citype=?, ciargs=? WHERE id=?")
+	stmt, err := db.Prepare("UPDATE platform SET address=?, citype=? WHERE id=?")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	//Create JSON string
-	jsonBytes, err := json.Marshal(pl.CIArgs)
-	if err != nil {
-		return err
-	}
-
-	res, err := stmt.Exec(pl.Address, pl.CIType, string(jsonBytes), pl.ID)
+	res, err := stmt.Exec(pl.Address, pl.CIType, pl.ID)
 	if err != nil {
 		return err
 	}
@@ -134,13 +120,8 @@ func GetPlatform(id int) (*Platform, error) {
 	for rows.Next() {
 
 		var citype int
-		var address, tlscert, tlskey, ciargs string
-		if err := rows.Scan(&id, &address, &tlscert, &tlskey, &citype, &ciargs); err != nil {
-			return &platform, err
-		}
-		var data map[string]interface{}
-		if err := json.Unmarshal([]byte(ciargs), &data); err != nil {
-			fmt.Printf("Platform from query: %v, %v, %v, %v, %v, %v\n", id, citype, address, tlscert, tlskey, ciargs)
+		var address, tlscert, tlskey string
+		if err := rows.Scan(&id, &address, &tlscert, &tlskey, &citype); err != nil {
 			return &platform, err
 		}
 		platform = Platform{
@@ -149,8 +130,8 @@ func GetPlatform(id int) (*Platform, error) {
 			TLSCert: tlscert,
 			TLSKey:  tlskey,
 			CIType:  citype,
-			CIArgs:  data,
 		}
+		fmt.Printf("Platform from query: %v, %v, %v, %v, %v\n", id, citype, address, tlscert, tlskey)
 		return &platform, nil
 	}
 	return &platform, err
@@ -179,13 +160,8 @@ func GetPlatforms() (*[]Platform, error) {
 	for rows.Next() {
 
 		var id, citype int
-		var address, tlscert, tlskey, ciargs string
-		if err := rows.Scan(&id, &address, &tlscert, &tlskey, &citype, &ciargs); err != nil {
-			return &platforms, err
-		}
-		var data map[string]interface{}
-		if err := json.Unmarshal([]byte(ciargs), &data); err != nil {
-			fmt.Printf("Platform from query: %v, %v, %v, %v, %v, %v\n", id, citype, address, tlscert, tlskey, ciargs)
+		var address, tlscert, tlskey string
+		if err := rows.Scan(&id, &address, &tlscert, &tlskey, &citype); err != nil {
 			return &platforms, err
 		}
 		platform := Platform{
@@ -194,9 +170,9 @@ func GetPlatforms() (*[]Platform, error) {
 			TLSCert: tlscert,
 			TLSKey:  tlskey,
 			CIType:  citype,
-			CIArgs:  data,
 		}
 		platforms = append(platforms, platform)
+		fmt.Printf("Platform from query: %v, %v, %v, %v, %v\n", id, citype, address, tlscert, tlskey)
 	}
 	return &platforms, nil
 }
