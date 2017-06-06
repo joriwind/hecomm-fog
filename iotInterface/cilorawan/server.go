@@ -38,7 +38,7 @@ type ApplicationServerAPI struct {
 func NewApplicationServerAPI(ctx context.Context, comlink chan iotInterface.ComLinkMessage) *ApplicationServerAPI {
 	//Set static config
 	var nsOpts []grpc.ServerOption
-	nsOpts = append(nsOpts, grpc.Creds(mustGetTransportCredentials(CILorawanCert, CILorawanKey, CILorawanCA, true)))
+	nsOpts = append(nsOpts, grpc.Creds(mustGetTransportCredentials(confCILorawanCert, confCILorawanKey, confCILorawanCA, true)))
 
 	return &ApplicationServerAPI{
 		ctx:     ctx,

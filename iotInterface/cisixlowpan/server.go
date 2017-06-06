@@ -31,7 +31,7 @@ func NewServer(ctx context.Context, comlink chan iotInterface.ComLinkMessage) *S
 	server.ctx = ctx
 	server.comlink = comlink
 
-	server.host = "[::1]:5683"
+	server.host = confCISixlowpanAddress
 
 	return &server
 }

@@ -24,7 +24,7 @@ func NewNetworkClient(ctx context.Context, host string) (*NetworkClient, error) 
 	var n NetworkClient
 	var nsDialOptions []grpc.DialOption
 	nsDialOptions = append(nsDialOptions, grpc.WithTransportCredentials(
-		mustGetTransportCredentials(CILorawanCert, CILorawanKey, CILorawanCA, true),
+		mustGetTransportCredentials(confCILorawanCert, confCILorawanKey, confCILorawanCA, true),
 	))
 	//host := "192.168.1.1:8000"
 	nsConn, err := grpc.Dial(host, nsDialOptions...) //TODO: when close connection?

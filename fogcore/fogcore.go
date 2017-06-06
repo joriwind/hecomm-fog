@@ -68,11 +68,11 @@ func NewFogcore(ctx context.Context, opt Options) *Fogcore {
 
 	switch {
 	case opt.Hostname == "":
-		fogcore.opt.Hostname = "0.0.0.0:8000"
+		fogcore.opt.Hostname = confFogcoreAddress
 	case opt.KeyServer == "":
-		fogcore.opt.KeyServer = "certs/server.key"
+		fogcore.opt.KeyServer = confFogcoreKey
 	case opt.CertServer == "":
-		fogcore.opt.CertServer = "certs/server.pem"
+		fogcore.opt.CertServer = confFogcoreCert
 	}
 
 	return &fogcore
