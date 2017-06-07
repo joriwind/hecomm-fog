@@ -9,6 +9,7 @@ import (
 
 	"time"
 
+	"github.com/joriwind/hecomm-api/hecomm"
 	"github.com/joriwind/hecomm-fog/iotInterface"
 )
 
@@ -40,24 +41,24 @@ func NewServer(ctx context.Context, comlink chan iotInterface.ComLinkMessage) *S
 func (s *Server) Start() error {
 	address, err := net.ResolveUDPAddr("udp6", s.host)
 	if err != nil {
-		log.Fatalf("cisixlowpan: unable to resolve UDP address: err: %v\n", err)
 		return err
 	}
 
-	ln, err := net.ListenUDP("upd6", address)
+	ln, err := net.ListenUDP("udp6", address)
 	if err != nil {
-		log.Fatalf("cisixlowpan: unable to listen on address: %v, error: %v", address, err)
 		return err
 	}
 	defer ln.Close()
+	log.Printf("cisixlowpan: listening on %v\n", ln.LocalAddr())
 
 	buf := make([]byte, 1024)
 
 	for {
 		n, addr, err := ln.ReadFrom(buf)
 		if err != nil {
-			log.Fatalf("cisixlowpan: failed at reading UDP packet: from: %v, error: %v\n", addr, err)
+			return err
 		}
+		log.Printf("Received packet from %v\n", addr.String())
 		//Send packet to fogcore
 		s.handlePacket(buf[0:n], addr)
 
@@ -70,7 +71,7 @@ func (s *Server) handlePacket(buf []byte, addr net.Addr) {
 	var message iotInterface.ComLinkMessage
 	message = iotInterface.ComLinkMessage{
 		Data:          buf,
-		InterfaceType: iotInterface.Sixlowpan,
+		InterfaceType: hecomm.CISixlowpan,
 		Origin:        []byte(addr.String()),
 		TimeReceived:  time.Now(),
 		Destination:   nil,

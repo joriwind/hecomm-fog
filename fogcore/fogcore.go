@@ -6,12 +6,17 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"io/ioutil"
 	"log"
 	"net"
 
 	"time"
 
 	"encoding/json"
+
+	"io"
+
+	"fmt"
 
 	"github.com/joriwind/hecomm-api/hecomm"
 	"github.com/joriwind/hecomm-fog/dbconnection"
@@ -90,24 +95,24 @@ func (f *Fogcore) Start() error {
 		log.Fatalf("fogcore: something went wrong in retrieving interfaces: %v", err)
 	}
 	//Create access to the will be routines of iot interfaces
-	f.ciCollection = make([]ci, len(*platforms))
+	//f.ciCollection = make([]ci, len(platforms))
 	f.ciCommonCH = make(chan iotInterface.ComLinkMessage, 20)
 	//Create the communication to the iot interface thread
 
 	//Startup already known interfaces
-	for index, pl := range *platforms {
+	for _, pl := range platforms {
 		channel := make(chan iotInterface.ComLinkMessage, 5)
 		ctx, cancel := context.WithCancel(f.ctx)
 		face := ci{Platform: &pl, Channel: channel, Ctx: ctx, Cancel: cancel}
 		f.ciCollection = append(f.ciCollection, face)
-		f.startInterface(&f.ciCollection[index])
+		f.startInterface(&f.ciCollection[len(f.ciCollection)-1])
 	}
 
 	for {
 		select {
 		case cm := <-f.controlCH:
 			if err := f.executeCommand(&cm.Message); err != nil {
-				log.Fatalf("Error in executeCommand! controlMessage: %v\n", cm)
+				log.Fatalf("Error in executeCommand! controlMessage: %v\n", err)
 				cm.ResponseCH <- false
 			}
 			cm.ResponseCH <- true
@@ -128,7 +133,17 @@ func (f *Fogcore) listenOnTLS() error {
 		return err
 	}
 
-	config := tls.Config{Certificates: []tls.Certificate{cert}}
+	caCert, err := ioutil.ReadFile(f.opt.CertServer)
+	if err != nil {
+		log.Fatalf("cacert error: %v\n", err)
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	config := tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientCAs:    caCertPool,
+	}
 	config.Rand = rand.Reader
 	listener, err := tls.Listen("tcp", f.opt.Hostname, &config)
 	if err != nil {
@@ -165,13 +180,13 @@ func (f *Fogcore) listenOnTLS() error {
 			log.Printf("fogcore: accepted TLS connection from %s", conn.RemoteAddr())
 			tlscon, ok := conn.(*tls.Conn)
 			if ok {
-				log.Print("ok=true")
 				state := tlscon.ConnectionState()
 				for _, v := range state.PeerCertificates {
 					log.Print(x509.MarshalPKIXPublicKey(v.PublicKey))
 				}
+				log.Printf("New connection from: %v\n", conn.RemoteAddr())
+				go f.handleTLSConn(conn)
 			}
-			go f.handleTLSConn(conn)
 		case <-f.ctx.Done():
 			return nil
 		}
@@ -185,14 +200,21 @@ func (f *Fogcore) handleTLSConn(conn net.Conn) {
 		//Read
 		n, err := conn.Read(buf)
 		if err != nil {
-			log.Fatalf("fogcore: handleTLSConn: error: %v\n", err)
+			if err == io.EOF { //Check if connection was closed by remote
+				log.Printf("Connection closed by remote: %v\n", conn.RemoteAddr())
+				return
+			}
+			log.Printf("fogcore: handleTLSConn: error: %v\n", err)
+			return
 		}
 		//var m tlsMessage
 		//err = json.Unmarshal(buf[0:n], m)
 		m, err := hecomm.GetMessage(buf[:n])
 		if err != nil {
-			log.Fatalf("fogcore: handleTLSConn: NewMessage: error: %v\n", err)
+			log.Printf("fogcore: handleTLSConn: NewMessage: error: %v\n", err)
+			return
 		}
+		log.Printf("Hecomm message received: FPort: %v, remote: %v\n", m.FPort, conn.RemoteAddr())
 
 		//Detect control message, is boolean 'Link' true or false?
 		switch m.FPort {
@@ -212,7 +234,8 @@ func (f *Fogcore) handleTLSConn(conn net.Conn) {
 			//Unmarshal the data part of hecomm message as command
 			cm, err := m.GetCommand()
 			if err != nil {
-				log.Fatalf("fogcore: handleTLSConn: GetCommand error: %v\n", err)
+				log.Printf("fogcore: handleTLSConn: GetCommand error: %v\n", err)
+				return
 			}
 			resp := make(chan bool, 1)
 			cchm := controlCHMessage{
@@ -221,11 +244,10 @@ func (f *Fogcore) handleTLSConn(conn net.Conn) {
 			}
 			//Sending command to main routine, waiting for answer, also getting ready to close connection
 			f.controlCH <- cchm
-			defer conn.Close()
 			response := <-resp
-			rsp, err := (&hecomm.Response{OK: response}).GetBytes()
+			rsp, err := hecomm.NewResponse(response)
 			if err != nil {
-				log.Fatalf("fogcore: handleTLSConn: getbytes of response, error: %v\n", err)
+				log.Printf("fogcore: handleTLSConn: getbytes of response, error: %v\n", err)
 				return
 			}
 			//Writing answer to client
@@ -462,14 +484,14 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 
 //executeCommand Handle the control messages
 func (f *Fogcore) executeCommand(command *hecomm.DBCommand) error {
+	log.Printf("Executing DBCommand: EType: %v, Insert: %v\n", command.EType, command.Insert)
 	switch command.EType {
 	case hecomm.ETypePlatform: //Start new platform
 		//Unravel data from command packet into platform element
 		var element hecomm.DBCPlatform
-		err := json.Unmarshal(command.Data, element)
+		err := json.Unmarshal(command.Data, &element)
 		if err != nil {
-			log.Fatalf("fogcore: executeCommand: unable to unmarshal platform from bytes: data: %v, err: %v\n", command.Data, err)
-			break
+			return err
 		}
 
 		platform := dbconnection.Platform{
@@ -480,6 +502,14 @@ func (f *Fogcore) executeCommand(command *hecomm.DBCommand) error {
 		//Depending on insert bool, insert or delete
 		switch command.Insert {
 		case true:
+			//Check if interface already exists?
+			for _, ci := range f.ciCollection {
+				if ci.Platform.Address == platform.Address && ci.Platform.CIType == platform.CIType {
+					log.Printf("Execute command: Communication interface already present and active")
+					return nil
+				}
+			}
+
 			channel := make(chan iotInterface.ComLinkMessage, 5)
 			ctx, cancel := context.WithCancel(f.ctx)
 			//Add new interface to end of collection
@@ -487,32 +517,45 @@ func (f *Fogcore) executeCommand(command *hecomm.DBCommand) error {
 			//Startup last added interface
 			f.startInterface(&f.ciCollection[len(f.ciCollection)-1])
 
+			//Add to db
+			err := dbconnection.InsertPlatform(&platform)
+			if err != nil {
+				return err
+			}
+			log.Printf("New platform inserted: %v\n", platform)
+
 		case false: //Stop a platform
 			for index, intface := range f.ciCollection {
-				if intface.Platform.ID == platform.ID {
+				if intface.Platform.Address == platform.Address && intface.Platform.CIType == platform.CIType {
+					//Remove from db
+					err = dbconnection.DeletePlatform(intface.Platform.ID)
+					if err != nil {
+						return err
+					}
+
 					//Delete while preserving order
 					//append the slice part before the element with all the elements after the specific element
 					f.ciCollection = append(f.ciCollection[:index], f.ciCollection[index+1:]...)
+
 				}
 			}
-			//TODO: delete from db and certs?
+			log.Printf("Platform Deleted: %v\n", platform)
+
 		}
 
 	case hecomm.ETypeNode:
 		var node dbconnection.Node
 		var element hecomm.DBCNode
 		var platformID int
-		err := json.Unmarshal(command.Data, element)
+		err := json.Unmarshal(command.Data, &element)
 		if err != nil {
-			log.Fatalf("fogcore: executeCommand: unable to unmarshal node from bytes: data: %v, err: %v\n", command.Data, err)
-			break
+			return err
 		}
 		pls, err := dbconnection.GetPlatforms()
 		if err != nil {
-			log.Fatalf("Could not retrieve platforms from db: %v\n", err)
-			break
+			return err
 		}
-		for _, pl := range *pls {
+		for _, pl := range pls {
 			if pl.Address == element.PlAddress {
 				if pl.CIType == int(element.PlType) {
 					platformID = pl.ID
@@ -521,8 +564,7 @@ func (f *Fogcore) executeCommand(command *hecomm.DBCommand) error {
 			}
 		}
 		if platformID == 0 {
-			log.Fatalf("Could not find platform for node!\n")
-			break
+			return fmt.Errorf("Could not find platform for node")
 		}
 
 		node = dbconnection.Node{
@@ -537,20 +579,19 @@ func (f *Fogcore) executeCommand(command *hecomm.DBCommand) error {
 		case true:
 			err := dbconnection.InsertNode(&node)
 			if err != nil {
-				log.Fatalf("fogcore: executeCommand: unable to insert node into db: node: %v, error: %v\n", node, err)
-				break
+				return err
 			}
 
 		case false:
 			err := dbconnection.DeleteNode(node.ID)
 			if err != nil {
-				log.Fatalf("fogcore: executeCommand: unable to delete node from db: node: %v, error: %v\n", node, err)
-				break
+				return err
 			}
 		}
+		log.Printf("New node inserted %v\n", node)
 
 	default:
-		log.Fatalf("fogcore: executeCommand: unexpected EType: %v\n", *command)
+		return fmt.Errorf("fogcore: executeCommand: unexpected EType: %v", command.EType)
 
 	}
 
@@ -563,15 +604,15 @@ func (f *Fogcore) startInterface(iot *ci) error {
 
 	//Depending on type, create iot interface routine
 	switch iot.Platform.CIType {
-	case iotInterface.Lorawan:
+	case int(hecomm.CILorawan):
 
 		//args := (grpc.ServerOption)pl.CIArgs
 		lorawanapi := cilorawan.NewApplicationServerAPI(iot.Ctx, iot.Channel)
-
+		log.Println("Starting LoRaWAN interface!")
 		//Start the cilorawan
 		go func() {
 			if err := lorawanapi.StartServer(); err != nil {
-				log.Fatalf("Something went wrong in interface: %v; error: %v", iot, err)
+				log.Printf("Something went wrong in interface: %v; error: %v", iot, err)
 			}
 		}()
 		//Tunnel the communication to common channel -- easy access in main loop
@@ -581,15 +622,15 @@ func (f *Fogcore) startInterface(iot *ci) error {
 			}
 		}()
 
-	case iotInterface.Sixlowpan:
+	case int(hecomm.CISixlowpan):
 		//Create the communication to the iot interface thread
 
 		sixlowpanServer := cisixlowpan.NewServer(iot.Ctx, iot.Channel)
-
+		log.Println("Starting 6LoWPAN interface!")
 		//Start the cilorawan
 		go func() {
 			if err := sixlowpanServer.Start(); err != nil {
-				log.Fatalf("Something went wrong in interface: %v; error: %v", iot, err)
+				log.Printf("Something went wrong in interface: %v; error: %v", iot, err)
 			}
 		}()
 		//Tunnel the communication to common channel -- easy access in main loop
@@ -600,7 +641,7 @@ func (f *Fogcore) startInterface(iot *ci) error {
 		}()
 
 	default:
-		log.Fatalf("Unkown interface requested! %v", iot)
+		return fmt.Errorf("Unkown interface requested! %v", iot)
 	}
 
 	return nil
@@ -622,7 +663,7 @@ func (f *Fogcore) handleCIMessage(clm *iotInterface.ComLinkMessage) error {
 
 	//Send to destination node
 	switch platform.CIType {
-	case iotInterface.Lorawan:
+	case int(hecomm.CILorawan):
 
 		//Create client, to send the message
 		client, err := cilorawan.NewNetworkClient(context.Background(), cilorawan.ConfNSAddress)
@@ -638,7 +679,7 @@ func (f *Fogcore) handleCIMessage(clm *iotInterface.ComLinkMessage) error {
 			return err
 		}
 
-	case iotInterface.Sixlowpan:
+	case int(hecomm.CISixlowpan):
 		client, err := cisixlowpan.NewClient("udp6", dstnode.DevID)
 		if err != nil {
 			log.Fatalf("fogcore: cisixlowpan: unable to create client, destination: %v\n", dstnode.DevID)

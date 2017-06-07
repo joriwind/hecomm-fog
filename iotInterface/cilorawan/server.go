@@ -22,6 +22,7 @@ import (
 
 	"time"
 
+	"github.com/joriwind/hecomm-api/hecomm"
 	as "github.com/joriwind/hecomm-fog/api/as"
 	"github.com/joriwind/hecomm-fog/iotInterface"
 )
@@ -43,7 +44,7 @@ func NewApplicationServerAPI(ctx context.Context, comlink chan iotInterface.ComL
 	return &ApplicationServerAPI{
 		ctx:     ctx,
 		comlink: comlink,
-		port:    ":8000",
+		port:    ":8001",
 		options: nsOpts,
 	}
 
@@ -53,7 +54,7 @@ func NewApplicationServerAPI(ctx context.Context, comlink chan iotInterface.ComL
 func (a *ApplicationServerAPI) StartServer() error {
 	lis, err := net.Listen("tcp", a.port)
 	if err != nil {
-		log.Fatalf("cilorawan: failed to listen: %v", err)
+		return err
 	}
 	grpcServer := grpc.NewServer(a.options...)
 	//server := NewApplicationServerAPI(a.ctx, a.comlink)
@@ -62,7 +63,7 @@ func (a *ApplicationServerAPI) StartServer() error {
 	reflection.Register(grpcServer)
 	log.Println("cilorawan: Start listening!")
 	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("cilorawan: failed to serve: %v", err)
+		return err
 	}
 
 	return err
@@ -84,7 +85,7 @@ func (a *ApplicationServerAPI) HandleDataUp(ctx context.Context, req *as.HandleD
 	message := iotInterface.ComLinkMessage{
 		Data:          req.Data,
 		Destination:   nil,
-		InterfaceType: iotInterface.Lorawan,
+		InterfaceType: hecomm.CILorawan,
 		Origin:        req.DevEUI,
 		TimeReceived:  time.Now(),
 	}

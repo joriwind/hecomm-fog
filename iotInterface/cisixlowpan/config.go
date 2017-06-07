@@ -1,5 +1,5 @@
 package cisixlowpan
 
 const (
-	confCISixlowpanAddress = "[::1]:5683"
+	confCISixlowpanAddress = "[::1]:5684"
 )

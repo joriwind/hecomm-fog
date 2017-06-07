@@ -106,7 +106,7 @@ func GetPlatform(id int) (*Platform, error) {
 		return &platform, err
 	}
 	defer db.Close()
-	stmt, err := db.Prepare("SELECT * FROM platform WHERE id=?")
+	stmt, err := db.Prepare("SELECT id, address, tlscert, tlskey, citype FROM platform WHERE id=?")
 	if err != nil {
 		return &platform, err
 	}
@@ -138,22 +138,22 @@ func GetPlatform(id int) (*Platform, error) {
 }
 
 //GetPlatforms Retrieve all platforms
-func GetPlatforms() (*[]Platform, error) {
+func GetPlatforms() ([]Platform, error) {
 	var platforms []Platform
 	db, err := sql.Open(dbDriver, dbsource)
 	if err != nil {
-		return &platforms, err
+		return platforms, err
 	}
 	defer db.Close()
-	stmt, err := db.Prepare("SELECT * FROM platform")
+	stmt, err := db.Prepare("SELECT id, address, tlscert, tlskey, citype FROM platform")
 	if err != nil {
-		return &platforms, err
+		return platforms, err
 	}
 	defer stmt.Close()
 
 	rows, err := stmt.Query()
 	if err != nil {
-		return &platforms, err
+		return platforms, err
 	}
 	defer rows.Close()
 
@@ -162,7 +162,7 @@ func GetPlatforms() (*[]Platform, error) {
 		var id, citype int
 		var address, tlscert, tlskey string
 		if err := rows.Scan(&id, &address, &tlscert, &tlskey, &citype); err != nil {
-			return &platforms, err
+			return platforms, err
 		}
 		platform := Platform{
 			ID:      id,
@@ -172,9 +172,10 @@ func GetPlatforms() (*[]Platform, error) {
 			CIType:  citype,
 		}
 		platforms = append(platforms, platform)
-		fmt.Printf("Platform from query: %v, %v, %v, %v, %v\n", id, citype, address, tlscert, tlskey)
+		fmt.Printf("Platform from query: %v, %v, %v, %v, %v\n", platform.ID, platform.CIType,
+			platform.Address, platform.TLSCert, platform.TLSKey)
 	}
-	return &platforms, nil
+	return platforms, nil
 }
 
 //DeletePlatform Delete platform via platform id
@@ -367,21 +368,21 @@ func GetNode(ID int) (*Node, error) {
 }
 
 //GetNodes Retrieves all nodes
-func GetNodes() (*[]Node, error) {
+func GetNodes() ([]Node, error) {
 	var nodes []Node
 	db, err := sql.Open(dbDriver, dbsource)
 	if err != nil {
-		return &nodes, err
+		return nodes, err
 	}
 	defer db.Close()
 	stmt, err := db.Prepare("SELECT * FROM node")
 	if err != nil {
-		return &nodes, err
+		return nodes, err
 	}
 	defer stmt.Close()
 	rows, err := stmt.Query()
 	if err != nil {
-		return &nodes, err
+		return nodes, err
 	}
 	defer rows.Close()
 
@@ -399,7 +400,7 @@ func GetNodes() (*[]Node, error) {
 		}
 		nodes = append(nodes, node)
 	}
-	return &nodes, err
+	return nodes, err
 }
 
 //InsertLink Insert a link into the database
@@ -451,21 +452,21 @@ func UpdateLink(l *Link) error {
 }
 
 //GetLinks Retrieve all links
-func GetLinks() (*[]Link, error) {
+func GetLinks() ([]Link, error) {
 	var links []Link
 	db, err := sql.Open(dbDriver, dbsource)
 	if err != nil {
-		return &links, err
+		return links, err
 	}
 	defer db.Close()
 	stmt, err := db.Prepare("SELECT * FROM link")
 	if err != nil {
-		return &links, err
+		return links, err
 	}
 	defer stmt.Close()
 	rows, err := stmt.Query()
 	if err != nil {
-		return &links, err
+		return links, err
 	}
 	defer rows.Close()
 
@@ -479,7 +480,7 @@ func GetLinks() (*[]Link, error) {
 		}
 		links = append(links, link)
 	}
-	return &links, err
+	return links, err
 }
 
 //GetLink Retrieve via one of both's node ID

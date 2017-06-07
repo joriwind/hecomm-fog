@@ -30,9 +30,9 @@ func main() {
 	}
 
 	//Checking for flags
-	cert := flag.String("cert", "./certs/cert.pem", "The certificate used by TLS listener")
-	key := flag.String("key", "./certs/key.unencrypted.pem", "The *unencrypted* key used by TLS listener")
-	address := flag.String("address", "localhost:4567", "Server address of TLS listener")
+	cert := flag.String("cert", "./certs/fog.pem", "The certificate used by TLS listener")
+	key := flag.String("key", "./certs/fog-key.unencrypted.pem", "The *unencrypted* key used by TLS listener")
+	address := flag.String("address", "", "Server address of TLS listener")
 	flag.Parse()
 
 	//Initialise fogcore
