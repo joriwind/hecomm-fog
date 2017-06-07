@@ -625,7 +625,7 @@ func (f *Fogcore) handleCIMessage(clm *iotInterface.ComLinkMessage) error {
 	case iotInterface.Lorawan:
 
 		//Create client, to send the message
-		client, err := cilorawan.NewNetworkClient(context.Background(), cilorawan.NSAddress)
+		client, err := cilorawan.NewNetworkClient(context.Background(), cilorawan.confNSAddress)
 		if err != nil {
 			log.Fatalf("fogcore: cilorawan: creation of newnetworkclient failed! address: %v\n", "")
 			return err
