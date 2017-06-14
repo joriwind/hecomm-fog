@@ -112,13 +112,14 @@ func (f *Fogcore) Start() error {
 		select {
 		case cm := <-f.controlCH:
 			if err := f.executeCommand(&cm.Message); err != nil {
-				log.Fatalf("Error in executeCommand! controlMessage: %v\n", err)
+				log.Printf("Error in executeCommand! controlMessage: %v\n", err)
 				cm.ResponseCH <- false
+				return nil
 			}
 			cm.ResponseCH <- true
 		case clm := <-f.ciCommonCH:
 			if err := f.handleCIMessage(&clm); err != nil {
-				log.Fatalf("Error in handleCIMessage! message: %v\n", clm)
+				log.Printf("Error in handleCIMessage! message: %v\n", clm)
 			}
 		case <-f.ctx.Done():
 			return nil
@@ -175,7 +176,6 @@ func (f *Fogcore) listenOnTLS() error {
 			if conn == nil {
 				return errors.New("fogcore: fail on TLS accept")
 			}
-			defer conn.Close()
 
 			log.Printf("fogcore: accepted TLS connection from %s", conn.RemoteAddr())
 			tlscon, ok := conn.(*tls.Conn)
@@ -196,6 +196,7 @@ func (f *Fogcore) listenOnTLS() error {
 
 func (f *Fogcore) handleTLSConn(conn net.Conn) {
 	buf := make([]byte, 2048)
+	defer conn.Close()
 	for {
 		//Read
 		n, err := conn.Read(buf)
@@ -245,6 +246,7 @@ func (f *Fogcore) handleTLSConn(conn net.Conn) {
 			//Sending command to main routine, waiting for answer, also getting ready to close connection
 			f.controlCH <- cchm
 			response := <-resp
+			log.Printf("DBcommand resulted in: %v\n", response)
 			rsp, err := hecomm.NewResponse(response)
 			if err != nil {
 				log.Printf("fogcore: handleTLSConn: getbytes of response, error: %v\n", err)
@@ -253,7 +255,7 @@ func (f *Fogcore) handleTLSConn(conn net.Conn) {
 			//Writing answer to client
 			conn.Write(rsp)
 			//Stop connection
-			return
+			break
 		default:
 			log.Printf("Unexpected FPort: %v\n", m.FPort)
 		}
@@ -269,13 +271,10 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 	rcvOrigFromReq := true
 
 	//Init
-	rcv = sP.Data
+	message = sP
 	chReq := make(chan []byte, 10)
 	chProv := make(chan []byte, 10)
 	chError := make(chan error)
-
-	//Close channel when done
-	defer ls.ReqConn.Close()
 
 	//Tunnel data from requester to channel requester
 	go func(ch chan []byte, chError chan error, buf []byte) {
@@ -291,11 +290,6 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 
 	//Keep running while protocol is active
 	for {
-		//Translate packet
-		message, err = hecomm.GetMessage(rcv)
-		if err != nil {
-			log.Fatalf("fogcore: handleLinkProtocol: unable to unmarshal linkmessage: %v\n", err)
-		}
 
 		//Do action depending on type of message
 		switch message.FPort {
@@ -304,7 +298,7 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 			//TODO: check requesting node and platform, in db?
 			lc, err := message.GetLinkContract()
 			if err != nil {
-				log.Fatalf("fogcore: handleLinkProtocol: unvalid link request packet: %v, error: %v\n", string(message.Data), err)
+				log.Printf("Unable to formulate LinkContract from message: %v, error: %v\n", string(message.Data), err)
 				break
 			}
 
@@ -318,7 +312,7 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 				log.Printf("fogcore: handleLinkProtocol: dit not find requesting node in db: %v\n", message)
 				bytes, err := hecomm.NewResponse(false)
 				if err != nil {
-					log.Fatalf("fogcore: handleLinkProtocol: failed response, error: %v\n", err)
+					log.Fatalf("Failed to formulate %v response, error: %v\n", false, err)
 				}
 				ls.ReqConn.Write(bytes)
 				return
@@ -330,14 +324,14 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 			//Locating a possible provider node
 			tmpProvnode, err := dbconnection.FindAvailableProviderNode(lc.InfType)
 			if err != nil {
-				log.Fatalf("fogcore: handleLinkProtocol: error in locating provider node: %v, error: %v\n", message, err)
+				log.Fatalf("Error in finding provider node in DB: InfType: %v, error: %v\n", lc.InfType, err)
 			}
 			if tmpProvnode.ID == 0 {
-				log.Fatalf("fogcore: handleLinkProtocol: Dit not find suitable provider node! link request: %v\n", string(sP.Data))
+				log.Printf("fogcore: handleLinkProtocol: Dit not find suitable provider node! link request: %v\n", string(sP.Data))
 				//Sending failed response
 				bytes, err := hecomm.NewResponse(false)
 				if err != nil {
-					log.Fatalf("fogcore: handleLinkProtocol: failed response, error: %v\n", err)
+					log.Fatalf("Failed to formuate false response, error: %v\n", err)
 				}
 				ls.ReqConn.Write(bytes)
 				return
@@ -345,7 +339,7 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 
 			platform, err := dbconnection.GetPlatform(tmpProvnode.ID)
 			if err != nil {
-				log.Fatalf("fogcore: handleLinkProtocol: getplatform of available node failed: %v\n", err)
+				log.Fatalf("Failed to retrieve platform from DB, platform ID: %v, error: %v\n", tmpProvnode.ID, err)
 			}
 
 			//Setup tls connection to provider platform
@@ -354,8 +348,13 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 			}
 			ls.ProvConn, err = tls.Dial("tcp", platform.Address, conf)
 			if err != nil {
-				log.Fatalf("fogcore: handleLinkProtocol: could not reach provider platform: %v\n", err)
+				log.Printf("Could not reach provider platform: %v\n", err)
 				//TODO: connection not available
+				bytes, err := hecomm.NewResponse(false)
+				if err != nil {
+					log.Fatalf("Failed to formuate false response, error: %v\n", err)
+				}
+				ls.ReqConn.Write(bytes)
 				return
 			}
 			defer ls.ProvConn.Close()
@@ -364,7 +363,7 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 			ls.LC.ProvDevEUI = []byte(tmpProvnode.DevID)
 			bytes, err := ls.LC.GetBytes()
 			if err != nil {
-				log.Fatalf("fogcore: handleLinkProtocol: failed to send node request to provider platform, error: %v\n", err)
+				log.Fatalf("Failed to compile linkcontract into bytes, linkcontract: %v, error: %v\n", ls.LC, err)
 				return
 			}
 			ls.ProvConn.Write(bytes)
@@ -479,6 +478,12 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 			log.Fatalf("fogcore: handleLinkProtocol: context ended linkState: %v\n", ls)
 			return
 		}
+
+		//Translate packet
+		message, err = hecomm.GetMessage(rcv)
+		if err != nil {
+			log.Fatalf("fogcore: handleLinkProtocol: unable to unmarshal linkmessage: %v\n", err)
+		}
 	}
 }
 
@@ -564,7 +569,7 @@ func (f *Fogcore) executeCommand(command *hecomm.DBCommand) error {
 			}
 		}
 		if platformID == 0 {
-			return fmt.Errorf("Could not find platform for node")
+			return fmt.Errorf("Could not find platform for node, origin: %v, type: %v", element.PlAddress, element.PlType)
 		}
 
 		node = dbconnection.Node{
