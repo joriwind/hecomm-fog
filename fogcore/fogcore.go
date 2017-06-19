@@ -345,7 +345,7 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 
 			//Setup tls connection to provider platform
 			conf := &tls.Config{
-			//InsecureSkipVerify: true,
+				InsecureSkipVerify: true,
 			}
 			ls.ProvConn, err = tls.Dial("tcp", platform.Address, conf)
 			if err != nil {
