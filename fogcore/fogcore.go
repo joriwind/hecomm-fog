@@ -103,7 +103,8 @@ func (f *Fogcore) Start() error {
 	for _, pl := range platforms {
 		channel := make(chan iotInterface.ComLinkMessage, 5)
 		ctx, cancel := context.WithCancel(f.ctx)
-		face := ci{Platform: &pl, Channel: channel, Ctx: ctx, Cancel: cancel}
+		platform := pl //Map variable, else last value used!
+		face := ci{Platform: &platform, Channel: channel, Ctx: ctx, Cancel: cancel}
 		f.ciCollection = append(f.ciCollection, face)
 		f.startInterface(&f.ciCollection[len(f.ciCollection)-1])
 	}
@@ -509,10 +510,12 @@ func (f *Fogcore) executeCommand(command *hecomm.DBCommand) error {
 		case true:
 			//Check if interface already exists?
 			for _, ci := range f.ciCollection {
-				if ci.Platform.Address == platform.Address && ci.Platform.CIType == platform.CIType {
+				//TODO update if address isn't correct: ci.Platform.Address == platform.Address &&
+				if ci.Platform.CIType == platform.CIType {
 					log.Printf("Execute command: Communication interface already present and active")
 					return nil
 				}
+
 			}
 
 			channel := make(chan iotInterface.ComLinkMessage, 5)
