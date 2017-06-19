@@ -367,6 +367,11 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 				log.Fatalf("Failed to compile linkcontract into bytes, linkcontract: %v, error: %v\n", ls.LC, err)
 				return
 			}
+			bytes, err = hecomm.NewMessage(hecomm.FPortLinkReq, bytes)
+			if err != nil {
+				log.Fatalf("Failed to compile message into bytes, FPort: %v, error: %v\n", hecomm.FPortLinkReq, err)
+				return
+			}
 			ls.ProvConn.Write(bytes)
 
 			//Tunnel data from provider to channel provider
@@ -383,10 +388,14 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 
 		case hecomm.FPortLinkState:
 			//Depending on origin of data send to the other
+			bytes, err := message.GetBytes()
+			if err != nil {
+				log.Fatalf("Unable to compile message to bytes: %v\n", err)
+			}
 			if rcvOrigFromReq {
-				ls.ProvConn.Write(message.Data)
+				ls.ProvConn.Write(bytes)
 			} else {
-				ls.ReqConn.Write(message.Data)
+				ls.ReqConn.Write(bytes)
 			}
 
 		case hecomm.FPortLinkSet:
@@ -405,6 +414,11 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 					log.Fatalf("fogcore: handleLinkProtocol: linkcontract to bytes, error: %v\n", err)
 					return
 
+				}
+				bytes, err = hecomm.NewMessage(hecomm.FPortLinkSet, bytes)
+				if err != nil {
+					log.Fatalf("Failed to compile message into bytes, FPort: %v, error: %v\n", hecomm.FPortLinkSet, err)
+					return
 				}
 				ls.ProvConn.Write(bytes)
 			}
@@ -425,11 +439,22 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 						log.Fatalf("fogcore: handleLinkProtocol: ok tslResponse, error: %v\n", err)
 						return
 					}
+					bytes, err = hecomm.NewMessage(hecomm.FPortLinkReq, bytes)
+					if err != nil {
+						log.Fatalf("Failed to compile message into bytes, FPort: %v, error: %v\n", hecomm.FPortLinkSet, err)
+						return
+					}
 					ls.ReqConn.Write(bytes)
 
 				} else {
 					//TODO: in case of not valid response, search for other provider!!
-					log.Fatalf("fogcore: handleLinkProtocol: NOT OK response, what to do? State: %v\n", ls)
+					log.Printf("fogcore: handleLinkProtocol: NOT OK response, what to do? State: %v\n", ls.LC)
+					bytes, err := hecomm.NewResponse(false)
+					if err != nil {
+						log.Fatalf("Unable to compile response into bytes: %v\n", err)
+					}
+					ls.ReqConn.Write(bytes)
+					return
 				}
 			case true:
 				//Connection is set and key was generated!
