@@ -56,6 +56,15 @@ func (a *ApplicationServerAPI) StartServer() error {
 	if err != nil {
 		return err
 	}
+	defer lis.Close()
+	//Check if ctx is done
+	go func() {
+		select {
+		case <-a.ctx.Done():
+			lis.Close()
+		}
+	}()
+
 	grpcServer := grpc.NewServer(a.options...)
 	//server := NewApplicationServerAPI(a.ctx, a.comlink)
 	as.RegisterApplicationServerServer(grpcServer, a)

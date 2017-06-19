@@ -509,10 +509,32 @@ func (f *Fogcore) executeCommand(command *hecomm.DBCommand) error {
 		switch command.Insert {
 		case true:
 			//Check if interface already exists?
-			for _, ci := range f.ciCollection {
+			for index, ci := range f.ciCollection {
 				//TODO update if address isn't correct: ci.Platform.Address == platform.Address &&
 				if ci.Platform.CIType == platform.CIType {
 					log.Printf("Execute command: Communication interface already present and active")
+					//If address do not match, update
+					if ci.Platform.Address != platform.Address {
+						log.Printf("Updating platform with new information: %v\n", platform)
+						var newPlatform dbconnection.Platform
+						newPlatform = *ci.Platform
+						newPlatform.Address = platform.Address
+						err := dbconnection.UpdatePlatform(&newPlatform)
+						if err != nil {
+							return err
+						}
+						//Stop old platform interface
+						ci.Cancel()
+
+						//Start new
+						ctx, cancel := context.WithCancel(f.ctx)
+						ci.Cancel = cancel
+						ci.Ctx = ctx
+						ci.Platform = &newPlatform
+						//Channel is reused
+
+						f.startInterface(&f.ciCollection[index])
+					}
 					return nil
 				}
 
