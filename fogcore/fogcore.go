@@ -332,13 +332,13 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 				//Sending failed response
 				bytes, err := hecomm.NewResponse(false)
 				if err != nil {
-					log.Fatalf("Failed to formuate false response, error: %v\n", err)
+					log.Fatalf("Failed to formulate false response, error: %v\n", err)
 				}
 				ls.ReqConn.Write(bytes)
 				return
 			}
 
-			platform, err := dbconnection.GetPlatform(tmpProvnode.ID)
+			platform, err := dbconnection.GetPlatform(tmpProvnode.PlatformID)
 			if err != nil {
 				log.Fatalf("Failed to retrieve platform from DB, platform ID: %v, error: %v\n", tmpProvnode.ID, err)
 			}
