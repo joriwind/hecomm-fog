@@ -114,7 +114,7 @@ func (f *Fogcore) Start() error {
 			if err := f.executeCommand(&cm.Message); err != nil {
 				log.Printf("Error in executeCommand! controlMessage: %v\n", err)
 				cm.ResponseCH <- false
-				return nil
+				//return nil
 			}
 			cm.ResponseCH <- true
 		case clm := <-f.ciCommonCH:
