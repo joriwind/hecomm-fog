@@ -317,24 +317,35 @@ func FindAvailableProviderNode(infType int) (*Node, error) {
 		return &node, err
 	}
 	defer db.Close()
-	stmt, err := db.Prepare("SELECT * FROM node LEFT JOIN link ON link.provnode = node.id WHERE node.inftype=? AND link.id is null AND node.isprovider = 1")
+	stmt, err := db.Prepare("SELECT node.id, node.devid, node.platformid, node.isprovider, node.inftype, link.id FROM node LEFT JOIN link ON link.provnode = node.id WHERE node.inftype=? AND link.id is null AND node.isprovider = 1")
 	if err != nil {
 		return &node, err
 	}
 	defer stmt.Close()
 
-	row := stmt.QueryRow(infType)
-	var id, platformid, inftype int
+	rows, err := stmt.Query(infType)
+	if err != nil {
+		return &node, err
+	}
+	var id, platformid, inftype, idLink int
 	var devid string
 	var isprovider bool
-	row.Scan(&id, &devid, &platformid, &isprovider, &inftype)
-	node = Node{
-		ID:         id,
-		DevID:      devid,
-		PlatformID: platformid,
-		IsProvider: isprovider,
-		InfType:    inftype,
+
+	for rows.Next() {
+		rows.Scan(&id, &devid, &platformid, &isprovider, &inftype, &idLink)
+		if idLink == 0 {
+			//Not already linked device
+			node = Node{
+				ID:         id,
+				DevID:      devid,
+				PlatformID: platformid,
+				IsProvider: isprovider,
+				InfType:    inftype,
+			}
+			break
+		}
 	}
+
 	return &node, err
 }
 
