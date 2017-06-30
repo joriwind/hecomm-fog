@@ -497,11 +497,11 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 			rcvOrigFromReq = false
 
 		case err := <-chError:
-			log.Fatalf("fogcore: handleLinkProtocol: received error from a channel: %v\n", err)
+			log.Printf("fogcore: handleLinkProtocol: received error from a channel: %v\n", err)
 			return
 
 		case <-ls.Ctx.Done():
-			log.Fatalf("fogcore: handleLinkProtocol: context ended linkState: %v\n", ls)
+			log.Printf("fogcore: handleLinkProtocol: context ended linkState: %v\n", ls)
 			return
 		}
 
