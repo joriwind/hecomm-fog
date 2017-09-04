@@ -10,9 +10,15 @@ const (
 	confFogcoreKey     string = "certs/fogcore-key.key"
 )
 
+//SixlowpanPort Used serial connection to communicate with 6LoWPAN
+var SixlowpanPort = SixlowpanPortConst
+
+//SixlowpanDebugLevel Debug level
+var SixlowpanDebugLevel = SixlowpanDebugLevelConst
+
 const (
-	//SLIPPort  configuration
-	SLIPPort string = "/dev/ttyUSB0"
-	//SLIPDebug configuration
-	SLIPDebug uint8 = sixlowpan.DebugPacket
+	//SixlowpanPortConst  configuration
+	SixlowpanPortConst string = "/dev/ttyUSB0"
+	//SixlowpanDebugLevelConst configuration
+	SixlowpanDebugLevelConst uint8 = sixlowpan.DebugPacket
 )

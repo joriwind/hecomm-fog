@@ -683,8 +683,8 @@ func (f *Fogcore) startInterface(iot *ci) error {
 		//Create the communication to the iot interface thread
 
 		config := sixlowpan.Config{
-			DebugLevel: SLIPDebug,
-			PortName:   SLIPPort,
+			DebugLevel: SixlowpanDebugLevel,
+			PortName:   SixlowpanPort,
 		}
 		sixlowpanServer := cisixlowpan.NewServer(iot.Ctx, iot.Channel, config)
 		log.Println("Starting 6LoWPAN interface!")
@@ -742,8 +742,8 @@ func (f *Fogcore) handleCIMessage(clm *iotInterface.ComLinkMessage) error {
 
 	case int(hecomm.CISixlowpan):
 		config := sixlowpan.Config{
-			DebugLevel: SLIPDebug,
-			PortName:   SLIPPort,
+			DebugLevel: SixlowpanDebugLevel,
+			PortName:   SixlowpanPort,
 		}
 		client, err := cisixlowpan.NewClient(config)
 		if err != nil {

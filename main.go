@@ -26,14 +26,24 @@ func main() {
 	//Flag init
 	flag.Usage = func() {
 		fmt.Printf("Usage of %s:\n", os.Args[0])
-		fmt.Printf("-cert, -key, -address")
+		fmt.Printf("-cert, -key, -address, -slipport")
 	}
 
 	//Checking for flags
 	cert := flag.String("cert", "./certs/fog.pem", "The certificate used by TLS listener")
 	key := flag.String("key", "./certs/fog-key.unencrypted.pem", "The *unencrypted* key used by TLS listener")
 	address := flag.String("address", "", "Server address of TLS listener")
+	serialport := flag.String("sixlowpanport", fogcore.SixlowpanPortConst, "Serial SLIP connection to 6lowpan e.g. \"/dev/ttyUSB0\"")
+	sixlowpandebuglevel := flag.String("sixlowpandebuglevel", strconv.Itoa(int(fogcore.SixlowpanDebugLevelConst)), "Debug level of sixlowpan interface: 0 (none) - 1 (packets) - 2 (all)")
 	flag.Parse()
+
+	//6lowpan interface settings
+	fogcore.SixlowpanPort = *serialport
+	sixlevel, err := strconv.Atoi(*sixlowpandebuglevel)
+	if err != nil {
+		log.Fatalf("Debug level of 6lowpan interface was not valid: %v\n", err)
+	}
+	fogcore.SixlowpanDebugLevel = uint8(sixlevel)
 
 	//Initialise fogcore
 	ctx, cancel := context.WithCancel(context.Background())
