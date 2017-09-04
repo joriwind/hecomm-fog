@@ -10,6 +10,8 @@ import (
 	"log"
 	"net"
 
+	"github.com/joriwind/hecomm-interface-6lowpan"
+
 	"time"
 
 	"encoding/json"
@@ -680,7 +682,11 @@ func (f *Fogcore) startInterface(iot *ci) error {
 	case int(hecomm.CISixlowpan):
 		//Create the communication to the iot interface thread
 
-		sixlowpanServer := cisixlowpan.NewServer(iot.Ctx, iot.Channel)
+		config := sixlowpan.Config{
+			DebugLevel: SLIPDebug,
+			PortName:   SLIPPort,
+		}
+		sixlowpanServer := cisixlowpan.NewServer(iot.Ctx, iot.Channel, config)
 		log.Println("Starting 6LoWPAN interface!")
 		//Start the cilorawan
 		go func() {
@@ -735,7 +741,11 @@ func (f *Fogcore) handleCIMessage(clm *iotInterface.ComLinkMessage) error {
 		}
 
 	case int(hecomm.CISixlowpan):
-		client, err := cisixlowpan.NewClient("udp6", dstnode.DevID)
+		config := sixlowpan.Config{
+			DebugLevel: SLIPDebug,
+			PortName:   SLIPPort,
+		}
+		client, err := cisixlowpan.NewClient(config)
 		if err != nil {
 			log.Fatalf("fogcore: cisixlowpan: unable to create client, destination: %v\n", dstnode.DevID)
 			return err

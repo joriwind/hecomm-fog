@@ -2,8 +2,9 @@ package cisixlowpan
 
 import (
 	"context"
+	"fmt"
 
-	"net"
+	"golang.org/x/net/ipv6"
 
 	"log"
 
@@ -11,71 +12,95 @@ import (
 
 	"github.com/joriwind/hecomm-api/hecomm"
 	"github.com/joriwind/hecomm-fog/iotInterface"
+	"github.com/joriwind/hecomm-interface-6lowpan"
 )
 
 //Server Object defining the Server
 type Server struct {
 	ctx     context.Context
 	comlink chan iotInterface.ComLinkMessage
-	host    string
-	options ServerOptions
-}
-
-//ServerOptions Options for the cisixlowpan server
-type ServerOptions struct {
-	host string
+	options sixlowpan.Config
 }
 
 //NewServer Setup the cisixlowpan server
-func NewServer(ctx context.Context, comlink chan iotInterface.ComLinkMessage) *Server {
+func NewServer(ctx context.Context, comlink chan iotInterface.ComLinkMessage, config sixlowpan.Config) *Server {
 	var server Server
 	server.ctx = ctx
 	server.comlink = comlink
-
-	server.host = confCISixlowpanAddress
+	if config.PortName == "" {
+		server.options = sixlowpan.Config{
+			DebugLevel: sixlowpan.DebugAll,
+			PortName:   "/dev/ttyUSB0",
+		}
+	} else {
+		server.options = config
+	}
 
 	return &server
 }
 
 //Start Create socket and start listening
 func (s *Server) Start() error {
-	address, err := net.ResolveUDPAddr("udp6", s.host)
+	reader, err := sixlowpan.Open(s.options)
 	if err != nil {
 		return err
 	}
+	defer reader.Close()
 
-	ln, err := net.ListenUDP("udp6", address)
-	if err != nil {
-		return err
-	}
-	defer ln.Close()
-	log.Printf("cisixlowpan: listening on %v\n", ln.LocalAddr())
+	log.Printf("cisixlowpan: listening on %v\n", s.options.PortName)
 
 	buf := make([]byte, 1024)
 
 	for {
-		n, addr, err := ln.ReadFrom(buf)
+		//n, addr, err := ln.ReadFrom(buf)
+		n, err := reader.Read(buf)
 		if err != nil {
 			return err
 		}
-		log.Printf("Received packet from %v\n", addr.String())
-		//Send packet to fogcore
-		s.handlePacket(buf[0:n], addr)
+
+		log.Printf("Received packet from SLIP\n")
+		message, err := toComLinkMessage(buf[0:n])
+		if err != nil {
+			log.Printf("Could not translate slip packet: %v\n", err)
+
+		} else {
+			//Communicate to main thread
+			log.Printf("Packet succesfully parsed, received from: %v", message.Origin)
+			s.comlink <- message
+		}
+
+		//Check if ctx is expired
+		if s.ctx.Err() != nil {
+			return s.ctx.Err()
+		}
 
 	}
 
 }
 
-//handlePacket Sends packet to fogcore
-func (s *Server) handlePacket(buf []byte, addr net.Addr) {
-	var message iotInterface.ComLinkMessage
-	message = iotInterface.ComLinkMessage{
-		Data:          buf,
-		InterfaceType: hecomm.CISixlowpan,
-		Origin:        []byte(addr.String()),
-		TimeReceived:  time.Now(),
-		Destination:   nil,
+//toComLinkMessage parses ipv6 & udp header to create comlinkmessage
+func toComLinkMessage(buf []byte) (m iotInterface.ComLinkMessage, err error) {
+	if len(buf) < (ipv6.HeaderLen + sixlowpan.UdpHeaderLen) {
+		return m, fmt.Errorf("Buf to small, could not fit ipv6 + udp header")
+	}
+	//Parsing the ip header to get source address
+	iph, err := ipv6.ParseHeader(buf[:ipv6.HeaderLen])
+	if err != nil {
+		return m, err
 	}
 
-	s.comlink <- message
+	//Unmarshalling UDP header to get to the payload
+	udph, err := sixlowpan.UnmarshalUDP(buf[ipv6.HeaderLen:])
+	if err != nil {
+		return m, err
+	}
+
+	m = iotInterface.ComLinkMessage{
+		Data:          udph.Payload,
+		InterfaceType: hecomm.CISixlowpan,
+		Origin:        []byte(iph.Src.String()),
+		TimeReceived:  time.Now(),
+		Destination:   nil, //Destination was fog, now should be something else
+	}
+	return m, err
 }

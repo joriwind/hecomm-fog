@@ -1,30 +1,39 @@
 package cisixlowpan
 
 import "github.com/joriwind/hecomm-fog/iotInterface"
-import "net"
+
 import "fmt"
 import "log"
+import "io"
+import "github.com/joriwind/hecomm-interface-6lowpan"
 
 //Client Link with sixlowpan destination
 type Client struct {
-	protocol string
-	dstAddr  string
-	conn     net.Conn
+	config sixlowpan.Config
+	conn   io.Writer
 }
 
 //NewClient Create connection with destination
-func NewClient(protocol string, destinationAddress string) (*Client, error) {
+func NewClient(config sixlowpan.Config) (*Client, error) {
+	var err error
+
 	client := Client{
-		protocol: protocol,
-		dstAddr:  destinationAddress,
-		conn:     nil,
+		config: config,
+		conn:   nil,
+	}
+	if config.PortName == "" {
+		client.config = sixlowpan.Config{
+			DebugLevel: sixlowpan.DebugAll,
+			PortName:   "/dev/ttyUSB0",
+		}
+	} else {
+		client.config = config
 	}
 
-	conn, err := net.Dial(client.protocol, client.dstAddr)
+	client.conn, err = sixlowpan.Open(config)
 	if err != nil {
-		return &client, err
+		return nil, err
 	}
-	client.conn = conn
 
 	return &client, nil
 }
@@ -32,14 +41,14 @@ func NewClient(protocol string, destinationAddress string) (*Client, error) {
 //SendData Send message to destination
 func (c *Client) SendData(message iotInterface.ComLinkMessage) error {
 	if c.conn == nil {
-		return fmt.Errorf("cisixlowpan: connection not available: dstAddr: %v, protocol: %v", c.dstAddr, c.protocol)
+		return fmt.Errorf("cisixlowpan: connection not available: config: %v", c.config)
 	}
 
 	n, err := c.conn.Write(message.Data)
 	if err != nil {
-		return fmt.Errorf("cisixlowpan: did not send to %v, error: %v", c.dstAddr, err)
+		return fmt.Errorf("cisixlowpan: did not send error: %v", err)
 	}
-	log.Printf("cisixlowpan: send %v packet with %v bytes to %v", c.protocol, n, c.dstAddr)
+	log.Printf("cisixlowpan: send %v bytes to %v", n, message.Destination)
 	return nil
 }
 
