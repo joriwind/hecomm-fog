@@ -58,14 +58,14 @@ func (n *NetworkClient) SendData(message iotInterface.ComLinkMessage) error {
 	nodeSessionRequest := &ns.GetNodeSessionRequest{
 		DevEUI: message.Destination,
 	}
-	if nodeSessionResponse, err := n.networkServerClient.GetNodeSession(n.ctx, nodeSessionRequest, nil); err != nil {
+	if nodeSessionResponse, err := n.networkServerClient.GetNodeSession(n.ctx, nodeSessionRequest); err != nil {
 		log.Printf("LoRaWAN interface: GetNodeSession did not work: %v", err)
 	} else {
 		pushDataDownReq.FCnt = nodeSessionResponse.FCntDown
 	}
 
 	//Send packet down to Network server
-	if _, err := n.networkServerClient.PushDataDown(n.ctx, pushDataDownReq, nil); err != nil {
+	if _, err := n.networkServerClient.PushDataDown(n.ctx, pushDataDownReq); err != nil {
 		return err
 	}
 
