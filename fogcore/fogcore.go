@@ -121,7 +121,7 @@ func (f *Fogcore) Start() error {
 			}
 			cm.ResponseCH <- true
 		case clm := <-f.ciCommonCH:
-			if err := f.handleCIMessage(&clm); err != nil {
+			if err := f.handleCIMessage(clm); err != nil {
 				log.Printf("Error in handleCIMessage! message: %v\n", clm)
 			}
 		case <-f.ctx.Done():
@@ -708,11 +708,11 @@ func (f *Fogcore) startInterface(iot *ci) error {
 	return nil
 }
 
-func (f *Fogcore) handleCIMessage(clm *iotInterface.ComLinkMessage) error {
+func (f *Fogcore) handleCIMessage(clm iotInterface.ComLinkMessage) error {
 	//Find destination node
-	dstnode, err := dbconnection.GetDestination(clm)
+	dstnode, err := dbconnection.GetDestination(&clm)
 	if err != nil {
-		log.Fatalf("fogcore: Error in searching for destination node, message: %v", *clm)
+		log.Fatalf("fogcore: Error in searching for destination node, message: %v", clm)
 		return err
 	}
 	platform, err := dbconnection.GetPlatform(dstnode.PlatformID)
@@ -734,9 +734,9 @@ func (f *Fogcore) handleCIMessage(clm *iotInterface.ComLinkMessage) error {
 		}
 		defer client.Close()
 		//Send data with created client
-		err = client.SendData(*clm)
+		err = client.SendData(clm)
 		if err != nil {
-			log.Fatalf("fogcore: cilorawan: unable to send message: %v", *clm)
+			log.Fatalf("fogcore: cilorawan: unable to send message: %v", clm)
 			return err
 		}
 
@@ -752,9 +752,9 @@ func (f *Fogcore) handleCIMessage(clm *iotInterface.ComLinkMessage) error {
 		}
 		defer client.Close()
 
-		err = client.SendData(*clm)
+		err = client.SendData(clm)
 		if err != nil {
-			log.Fatalf("fogcore: cisixlowpan: unable to send message: %v, error: %v\n", *clm, err)
+			log.Fatalf("fogcore: cisixlowpan: unable to send message: %v, error: %v\n", clm, err)
 			return err
 		}
 
