@@ -9,8 +9,8 @@ build(){
 
 copy(){
     echo "Copying files..."
-    sshpass -p "$PASS" scp hecomm-fog root@192.168.2.1:/tmp/
-    sshpass -p "$PASS" scp -r certs/ root@192.168.2.1:/tmp/
+    sshpass -p "$PASS" scp hecomm-fog root@192.168.2.1:/mnt/usb/hecomm/
+    sshpass -p "$PASS" scp -r certs/ root@192.168.2.1:/mnt/usb/hecomm/
 }
 
 case $1 in
