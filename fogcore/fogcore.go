@@ -736,7 +736,7 @@ func (f *Fogcore) handleCIMessage(clm iotInterface.ComLinkMessage) error {
 		//Send data with created client
 		err = client.SendData(clm)
 		if err != nil {
-			log.Fatalf("fogcore: cilorawan: unable to send message: %v", clm)
+			log.Fatalf("fogcore: cilorawan: unable to send message: %v", err)
 			return err
 		}
 

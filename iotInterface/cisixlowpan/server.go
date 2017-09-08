@@ -55,6 +55,7 @@ func (s *Server) Start() error {
 		//n, addr, err := ln.ReadFrom(buf)
 		n, err := reader.Read(buf)
 		if err != nil {
+			log.Printf("Unable to read serial line: %v\n", err)
 			return err
 		}
 

@@ -20,5 +20,5 @@ const (
 	//SixlowpanPortConst  configuration
 	SixlowpanPortConst string = "/dev/ttyUSB0"
 	//SixlowpanDebugLevelConst configuration
-	SixlowpanDebugLevelConst uint8 = sixlowpan.DebugPacket
+	SixlowpanDebugLevelConst uint8 = sixlowpan.DebugAll
 )
