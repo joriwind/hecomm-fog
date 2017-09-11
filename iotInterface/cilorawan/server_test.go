@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/joriwind/hecomm-fog/fogcore"
+
 	"google.golang.org/grpc"
 
 	as "github.com/joriwind/hecomm-fog/api/as"
@@ -84,7 +86,10 @@ func testEq(a, b []byte) bool {
 
 func sendToAsServer(message iotInterface.ComLinkMessage, asDialOptions []grpc.DialOption) error {
 	//Create connection to server:
-	asDialOptions = append(asDialOptions, grpc.WithInsecure())
+	//asDialOptions = append(asDialOptions, grpc.WithInsecure())
+	asDialOptions = append(asDialOptions, grpc.WithTransportCredentials(
+		mustGetTransportCredentials(fogcore.ConfFogcoreCert, fogcore.ConfFogcoreKey, ConfCILorawanCaCert, true),
+	))
 	//}
 	//host := "192.168.1.1:8000"
 	asConn, err := grpc.Dial("localhost:8000", asDialOptions...) //TODO: when close connection?

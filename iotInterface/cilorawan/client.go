@@ -24,7 +24,7 @@ func NewNetworkClient(ctx context.Context, host string) (*NetworkClient, error) 
 	var n NetworkClient
 	var nsDialOptions []grpc.DialOption
 	nsDialOptions = append(nsDialOptions, grpc.WithTransportCredentials(
-		mustGetTransportCredentials(ConfCILorawanCert, ConfCILorawanKey, "", false),
+		mustGetTransportCredentials(ConfCILorawanCert, ConfCILorawanKey, ConfCILorawanCaCert, true),
 	))
 	//nsDialOptions = append(nsDialOptions, grpc.WithInsecure())
 	//host := "192.168.1.1:8000"
