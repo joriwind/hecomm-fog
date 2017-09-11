@@ -34,6 +34,7 @@ type Fogcore struct {
 	controlCH    chan controlCHMessage
 	ciCommonCH   chan iotInterface.ComLinkMessage
 	ciCollection []ci
+	tlsConfig    *tls.Config
 }
 
 type ci struct {
@@ -127,12 +128,14 @@ func (f *Fogcore) listenOnTLS() error {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
-	config := tls.Config{
-		Certificates: []tls.Certificate{cert},
-		ClientCAs:    caCertPool,
+	config := &tls.Config{
+		Certificates:       []tls.Certificate{cert},
+		RootCAs:            caCertPool,
+		InsecureSkipVerify: false,
 	}
 	config.Rand = rand.Reader
-	listener, err := tls.Listen("tcp", ConfFogcoreAddress, &config)
+	f.tlsConfig = config
+	listener, err := tls.Listen("tcp", ConfFogcoreAddress, f.tlsConfig)
 	if err != nil {
 		log.Fatalf("fogcore: tls error: listen: %s", err)
 		return err
@@ -215,7 +218,7 @@ func (f *Fogcore) handleTLSConn(conn net.Conn) {
 				BufProv: bufProv,
 				Ctx:     ctx,
 			}
-			ls.handleLinkProtocol(m)
+			ls.handleLinkProtocol(m, f.tlsConfig)
 
 		case 0:
 			//Unmarshal the data part of hecomm message as command
@@ -249,7 +252,7 @@ func (f *Fogcore) handleTLSConn(conn net.Conn) {
 	}
 }
 
-func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
+func (ls *linkState) handleLinkProtocol(sP *hecomm.Message, tlsConfig *tls.Config) {
 	//Buffers
 	var message *hecomm.Message
 	var err error
@@ -329,10 +332,7 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message) {
 			}
 
 			//Setup tls connection to provider platform
-			conf := &tls.Config{
-				InsecureSkipVerify: true,
-			}
-			ls.ProvConn, err = tls.Dial("tcp", platform.Address, conf)
+			ls.ProvConn, err = tls.Dial("tcp", platform.Address, tlsConfig)
 			if err != nil {
 				log.Printf("Could not reach provider platform: %v\n", err)
 				//TODO: connection not available
