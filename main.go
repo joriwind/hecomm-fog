@@ -20,40 +20,60 @@ import (
 
 	"github.com/joriwind/hecomm-fog/dbconnection"
 	"github.com/joriwind/hecomm-fog/fogcore"
+	"github.com/joriwind/hecomm-fog/iotInterface/cilorawan"
 )
 
 func main() {
 	//Flag init
 	flag.Usage = func() {
-		fmt.Printf("Usage of %s:\n", os.Args[0])
-		fmt.Printf("-cert, -key, -address, -slipport")
+		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+		flag.PrintDefaults()
 	}
 
 	//Checking for flags
-	cert := flag.String("cert", "./certs/fog.pem", "The certificate used by TLS listener")
-	key := flag.String("key", "./certs/fog-key.unencrypted.pem", "The *unencrypted* key used by TLS listener")
-	address := flag.String("address", "", "Server address of TLS listener")
-	serialport := flag.String("sixlowpanport", fogcore.SixlowpanPortConst, "Serial SLIP connection to 6lowpan e.g. \"/dev/ttyUSB0\"")
-	sixlowpandebuglevel := flag.String("sixlowpandebuglevel", strconv.Itoa(int(fogcore.SixlowpanDebugLevelConst)), "Debug level of sixlowpan interface: 0 (none) - 1 (packets) - 2 (all)")
+	//Fogcore
+	fcCert := flag.String("fcCert", fogcore.ConfFogcoreCert, "The certificate used by TLS listener")
+	fcCaCert := flag.String("fcCaCert", fogcore.ConfFogcoreCaCert, "The *unencrypted* key used by TLS listener")
+	fcKey := flag.String("fcKey", fogcore.ConfFogcoreKey, "The *unencrypted* key used by TLS listener")
+	fcAddress := flag.String("fcAddress", fogcore.ConfFogcoreAddress, "Server address of TLS listener")
+
+	//6LoWPAN
+	s6Serialport := flag.String("s6Serialport", fogcore.SixlowpanPortConst, "Serial SLIP connection to 6lowpan e.g. \"/dev/ttyUSB0\"")
+	s6Debuglevel := flag.String("s6Debuglevel", strconv.Itoa(int(fogcore.SixlowpanDebugLevelConst)), "Debug level of sixlowpan interface: 0 (none) - 1 (packets) - 2 (all)")
+
+	//LoRa
+	lwNSAddress := flag.String("lwNSAddress", cilorawan.ConfNSAddress, "The IP address of LoRaWAN network server")
+	lwCert := flag.String("lwCert", cilorawan.ConfCILorawanCert, "The certificate used by LoRaWAN certificate")
+	lwCaCert := flag.String("lwCaCert", cilorawan.ConfCILorawanCaCert, "The certificate used by LoRaWAN certificate")
+	lwKey := flag.String("lwKey", cilorawan.ConfCILorawanKey, "The certificate used by LoRaWAN certificate")
+
 	flag.Parse()
 
-	//6lowpan interface settings
-	fogcore.SixlowpanPort = *serialport
-	sixlevel, err := strconv.Atoi(*sixlowpandebuglevel)
+	//LoRaWAN configuration
+	cilorawan.ConfCILorawanCaCert = *lwCaCert
+	cilorawan.ConfCILorawanCert = *lwCert
+	cilorawan.ConfCILorawanKey = *lwKey
+	cilorawan.ConfNSAddress = *lwNSAddress
+
+	//6lowpan configuration
+	fogcore.SixlowpanPort = *s6Serialport
+	sixlevel, err := strconv.Atoi(*s6Debuglevel)
 	if err != nil {
 		log.Fatalf("Debug level of 6lowpan interface was not valid: %v\n", err)
 	}
 	fogcore.SixlowpanDebugLevel = uint8(sixlevel)
 
-	//Initialise fogcore
+	//Fogcore configuration
+	fogcore.ConfFogcoreAddress = *fcAddress
+	fogcore.ConfFogcoreCert = *fcCert
+	fogcore.ConfFogcoreKey = *fcKey
+	fogcore.ConfFogcoreCaCert = *fcCaCert
+
+	//Startup fogcore
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	opt := fogcore.Options{
-		Hostname:   *address,
-		CertServer: *cert,
-		KeyServer:  *key,
-	}
-	fogcore := fogcore.NewFogcore(ctx, opt)
+
+	fogcore := fogcore.NewFogcore(ctx)
 	go func() {
 		err := fogcore.Start()
 		if err != nil {
