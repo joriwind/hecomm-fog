@@ -24,8 +24,9 @@ func NewNetworkClient(ctx context.Context, host string) (*NetworkClient, error) 
 	var n NetworkClient
 	var nsDialOptions []grpc.DialOption
 	nsDialOptions = append(nsDialOptions, grpc.WithTransportCredentials(
-		mustGetTransportCredentials(confCILorawanCert, confCILorawanKey, "", true),
+		mustGetTransportCredentials(ConfCILorawanCert, ConfCILorawanKey, "", false),
 	))
+	//nsDialOptions = append(nsDialOptions, grpc.WithInsecure())
 	//host := "192.168.1.1:8000"
 	nsConn, err := grpc.Dial(host, nsDialOptions...) //TODO: when close connection?
 	if err != nil {
@@ -59,7 +60,8 @@ func (n *NetworkClient) SendData(message iotInterface.ComLinkMessage) error {
 		DevEUI: message.Destination,
 	}
 	if nodeSessionResponse, err := n.networkServerClient.GetNodeSession(n.ctx, nodeSessionRequest); err != nil {
-		log.Printf("LoRaWAN interface: GetNodeSession did not work: %v", err)
+		//log.Printf("LoRaWAN interface: GetNodeSession did not work: %v", err)
+		return err
 	} else {
 		pushDataDownReq.FCnt = nodeSessionResponse.FCntDown
 	}

@@ -31,17 +31,9 @@ import (
 //Fogcore Struct
 type Fogcore struct {
 	ctx          context.Context
-	opt          Options
 	controlCH    chan controlCHMessage
 	ciCommonCH   chan iotInterface.ComLinkMessage
 	ciCollection []ci
-}
-
-//Options Defines possible options to pass along with Fogcore object
-type Options struct {
-	Hostname   string
-	CertServer string
-	KeyServer  string
 }
 
 type ci struct {
@@ -70,17 +62,8 @@ type linkState struct {
 }
 
 //NewFogcore Create new fogcore module
-func NewFogcore(ctx context.Context, opt Options) *Fogcore {
-	fogcore := Fogcore{ctx: ctx, opt: opt}
-
-	switch {
-	case opt.Hostname == "":
-		fogcore.opt.Hostname = confFogcoreAddress
-	case opt.KeyServer == "":
-		fogcore.opt.KeyServer = confFogcoreKey
-	case opt.CertServer == "":
-		fogcore.opt.CertServer = confFogcoreCert
-	}
+func NewFogcore(ctx context.Context) *Fogcore {
+	fogcore := Fogcore{ctx: ctx}
 
 	return &fogcore
 }
@@ -131,13 +114,13 @@ func (f *Fogcore) Start() error {
 }
 
 func (f *Fogcore) listenOnTLS() error {
-	cert, err := tls.LoadX509KeyPair(f.opt.CertServer, f.opt.KeyServer)
+	cert, err := tls.LoadX509KeyPair(ConfFogcoreCert, ConfFogcoreKey)
 	if err != nil {
 		log.Fatalf("fogcore: tls error: loadkeys: %s", err)
 		return err
 	}
 
-	caCert, err := ioutil.ReadFile(f.opt.CertServer)
+	caCert, err := ioutil.ReadFile(ConfFogcoreCaCert)
 	if err != nil {
 		log.Fatalf("cacert error: %v\n", err)
 	}
@@ -149,7 +132,7 @@ func (f *Fogcore) listenOnTLS() error {
 		ClientCAs:    caCertPool,
 	}
 	config.Rand = rand.Reader
-	listener, err := tls.Listen("tcp", f.opt.Hostname, &config)
+	listener, err := tls.Listen("tcp", ConfFogcoreAddress, &config)
 	if err != nil {
 		log.Fatalf("fogcore: tls error: listen: %s", err)
 		return err
@@ -159,7 +142,7 @@ func (f *Fogcore) listenOnTLS() error {
 	//Listen for new tls connections
 	newConns := make(chan net.Conn)
 	go func() {
-		log.Printf("fogcore: listening on TLS socket: %v", f.opt.Hostname)
+		log.Printf("fogcore: listening on TLS socket: %v", ConfFogcoreAddress)
 		for {
 			conn, err := listener.Accept()
 			if err != nil {

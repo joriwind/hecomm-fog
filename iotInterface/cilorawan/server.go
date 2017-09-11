@@ -16,7 +16,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/reflection"
 
 	//"github.com/brocaar/lora-app-server/internal/common"
 
@@ -39,7 +38,7 @@ type ApplicationServerAPI struct {
 func NewApplicationServerAPI(ctx context.Context, comlink chan iotInterface.ComLinkMessage) *ApplicationServerAPI {
 	//Set static config
 	var nsOpts []grpc.ServerOption
-	nsOpts = append(nsOpts, grpc.Creds(mustGetTransportCredentials(confCILorawanCert, confCILorawanKey, "", true)))
+	nsOpts = append(nsOpts, grpc.Creds(mustGetTransportCredentials(ConfCILorawanCert, ConfCILorawanKey, ConfCILorawanCaCert, true)))
 
 	return &ApplicationServerAPI{
 		ctx:     ctx,
@@ -68,8 +67,8 @@ func (a *ApplicationServerAPI) StartServer() error {
 	grpcServer := grpc.NewServer(a.options...)
 	//server := NewApplicationServerAPI(a.ctx, a.comlink)
 	as.RegisterApplicationServerServer(grpcServer, a)
-	// Register reflection service on gRPC server.
-	reflection.Register(grpcServer)
+	/* // Register reflection service on gRPC server.
+	reflection.Register(grpcServer) */
 	log.Println("cilorawan: Start listening!")
 	if err := grpcServer.Serve(lis); err != nil {
 		return err
@@ -156,8 +155,9 @@ func mustGetTransportCredentials(tlsCert, tlsKey, caCert string, verifyClientCer
 		})
 	} else {
 		return credentials.NewTLS(&tls.Config{
-			Certificates: []tls.Certificate{cert},
-			RootCAs:      caCertPool,
+			Certificates:       []tls.Certificate{cert},
+			RootCAs:            caCertPool,
+			InsecureSkipVerify: true,
 		})
 	}
 }
