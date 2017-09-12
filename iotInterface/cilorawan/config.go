@@ -3,7 +3,7 @@ package cilorawan
 //Configuration of client and server
 
 //ConfNSAddress Address of lora Network server
-var ConfNSAddress = "192.168.2.103:8000"
+var ConfNSAddress = "192.168.2.104:8000"
 
 //ConfCILorawanCert Certificate to use
 var ConfCILorawanCert = "certs/fogcore.cert.pem"

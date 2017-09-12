@@ -151,12 +151,14 @@ func mustGetTransportCredentials(tlsCert, tlsKey, caCert string, verifyClientCer
 		return credentials.NewTLS(&tls.Config{
 			Certificates: []tls.Certificate{cert},
 			RootCAs:      caCertPool,
+			ClientCAs:    caCertPool,
 			ClientAuth:   tls.RequireAndVerifyClientCert,
 		})
 	} else {
 		return credentials.NewTLS(&tls.Config{
 			Certificates:       []tls.Certificate{cert},
 			RootCAs:            caCertPool,
+			ClientCAs:          caCertPool,
 			InsecureSkipVerify: true,
 		})
 	}
