@@ -10,7 +10,7 @@ import "github.com/joriwind/hecomm-interface-6lowpan"
 //Client Link with sixlowpan destination
 type Client struct {
 	config sixlowpan.Config
-	conn   io.Writer
+	conn   io.WriteCloser
 }
 
 //NewClient Create connection with destination
@@ -54,5 +54,5 @@ func (c *Client) SendData(message iotInterface.ComLinkMessage) error {
 
 //Close the connection
 func (c *Client) Close() {
-	c.Close()
+	c.conn.Close()
 }
