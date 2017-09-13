@@ -108,7 +108,7 @@ func (a *ApplicationServerAPI) GetDataDown(ctx context.Context, req *as.GetDataD
 	/*var devEUI lorawan.EUI64
 	copy(devEUI[:], req.DevEUI)*/
 
-	return nil, nil
+	return &as.GetDataDownResponse{}, nil
 
 }
 
@@ -117,7 +117,7 @@ func (a *ApplicationServerAPI) HandleDataDownACK(ctx context.Context, req *as.Ha
 	/*var devEUI lorawan.EUI64
 	copy(devEUI[:], req.DevEUI)*/
 
-	return nil, nil
+	return &as.HandleDataDownACKResponse{}, nil
 
 }
 
@@ -127,7 +127,7 @@ func (a *ApplicationServerAPI) HandleError(ctx context.Context, req *as.HandleEr
 	copy(devEUI[:], req.DevEUI)*/
 	log.Println("cilorawan: HandleError request???")
 
-	return nil, nil
+	return &as.HandleErrorResponse{}, nil
 }
 
 func mustGetTransportCredentials(tlsCert, tlsKey, caCert string, verifyClientCert bool) credentials.TransportCredentials {
