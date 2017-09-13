@@ -704,6 +704,7 @@ func (f *Fogcore) handleCIMessage(clm iotInterface.ComLinkMessage) error {
 		return err
 
 	}
+	log.Printf("Redirecting message: from %v, to %v, data: %x\n", string(clm.Origin), string(clm.Destination), clm.Data)
 
 	//Send to destination node
 	switch platform.CIType {
