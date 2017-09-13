@@ -1,11 +1,15 @@
 package cisixlowpan
 
-import "github.com/joriwind/hecomm-fog/iotInterface"
+import (
+	"fmt"
+	"io"
+	"log"
+	"net"
 
-import "fmt"
-import "log"
-import "io"
-import "github.com/joriwind/hecomm-interface-6lowpan"
+	"github.com/joriwind/hecomm-fog/iotInterface"
+	"github.com/joriwind/hecomm-interface-6lowpan"
+	"golang.org/x/net/ipv6"
+)
 
 //Client Link with sixlowpan destination
 type Client struct {
@@ -44,15 +48,61 @@ func (c *Client) SendData(message iotInterface.ComLinkMessage) error {
 		return fmt.Errorf("cisixlowpan: connection not available: config: %v", c.config)
 	}
 
-	n, err := c.conn.Write(message.Data)
+	log.Println("Compiling packet for 6lowpan...")
+	buf, err := compilePacket(message)
+	if err != nil {
+		return err
+	}
+	log.Printf("Sending: %x\n", buf)
+
+	n, err := c.conn.Write(buf)
 	if err != nil {
 		return fmt.Errorf("cisixlowpan: did not send error: %v", err)
 	}
-	log.Printf("cisixlowpan: send %v bytes to %v", n, message.Destination)
+	log.Printf("cisixlowpan: send %v bytes to %x", n, message.Destination)
 	return nil
 }
 
 //Close the connection
 func (c *Client) Close() {
 	c.conn.Close()
+}
+
+func compilePacket(message iotInterface.ComLinkMessage) ([]byte, error) {
+	//buf := make([]byte, ipv6.HeaderLen+sixlowpan.UdpHeaderLen+len(message.Data))
+
+	iph := ipv6.Header{
+		Version:      6,
+		TrafficClass: 0,
+		FlowLabel:    0,
+		PayloadLen:   sixlowpan.UdpHeaderLen + len(message.Data),
+		NextHeader:   17,
+		HopLimit:     255,
+		Src:          net.ParseIP("aaaa::c30c:0:0:7"),
+		Dst:          net.ParseIP(string(message.Destination[:]))}
+
+	udph := sixlowpan.UDPHeader{
+		DstPort: 5683,
+		Length:  uint16(sixlowpan.UdpHeaderLen + len(message.Data)),
+		Payload: message.Data,
+		SrcPort: 5683,
+		Chksum:  0,
+	}
+
+	err := udph.CalcChecksum(iph)
+	if err != nil {
+		return nil, err
+	}
+
+	ippayload, err := udph.Marschal()
+	if err != nil {
+		return nil, err
+	}
+
+	b, err := sixlowpan.Marschal(iph, ippayload)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }
