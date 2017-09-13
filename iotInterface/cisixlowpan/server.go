@@ -96,6 +96,11 @@ func toComLinkMessage(buf []byte) (m iotInterface.ComLinkMessage, err error) {
 		return m, err
 	}
 
+	/* origin, err := iph.Src.MarshalText()
+	if err != nil {
+		return m, err
+	} */
+
 	m = iotInterface.ComLinkMessage{
 		Data:          udph.Payload,
 		InterfaceType: hecomm.CISixlowpan,
