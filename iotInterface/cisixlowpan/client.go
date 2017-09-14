@@ -78,7 +78,7 @@ func compilePacket(message iotInterface.ComLinkMessage) ([]byte, error) {
 		PayloadLen:   sixlowpan.UdpHeaderLen + len(message.Data),
 		NextHeader:   17,
 		HopLimit:     255,
-		Src:          net.ParseIP("aaaa::c30c:0:0:7"),
+		Src:          net.ParseIP("aaaa::c30c:0:0:5"), //TODO: variable source IP, depending on IP set for udp-slip
 		Dst:          net.ParseIP(string(message.Destination[:]))}
 
 	udph := sixlowpan.UDPHeader{
