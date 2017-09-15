@@ -509,6 +509,7 @@ func (f *Fogcore) executeCommand(command *hecomm.DBCommand) error {
 		if err != nil {
 			return err
 		}
+		fmt.Printf("Unmarshalled platform: %+v\n", element)
 
 		platform := dbconnection.Platform{
 			Address: element.Address,
@@ -520,31 +521,29 @@ func (f *Fogcore) executeCommand(command *hecomm.DBCommand) error {
 		case true:
 			//Check if interface already exists?
 			for index, ci := range f.ciCollection {
-				//TODO update if address isn't correct: ci.Platform.Address == platform.Address &&
-				if ci.Platform.CIType == platform.CIType {
-					log.Printf("Execute command: Communication interface already present and active")
-					//If address do not match, update
-					if ci.Platform.Address != platform.Address {
-						log.Printf("Updating platform with new information: %v\n", platform)
-						var newPlatform dbconnection.Platform
-						newPlatform = *ci.Platform
-						newPlatform.Address = platform.Address
-						err := dbconnection.UpdatePlatform(&newPlatform)
-						if err != nil {
-							return err
-						}
-						//Stop old platform interface
-						ci.Cancel()
 
-						//Start new
-						ctx, cancel := context.WithCancel(f.ctx)
-						ci.Cancel = cancel
-						ci.Ctx = ctx
-						ci.Platform = &newPlatform
-						//Channel is reused
-
-						f.startInterface(&f.ciCollection[index])
+				if ci.Platform.Address == platform.Address {
+					log.Printf("Execute command: Communication interface already present")
+					var newPlatform dbconnection.Platform
+					newPlatform = platform
+					//Only need the ID for db
+					newPlatform.ID = ci.Platform.ID
+					log.Printf("Updating platform with new information: %+v\n", newPlatform)
+					err := dbconnection.UpdatePlatform(&newPlatform)
+					if err != nil {
+						return err
 					}
+					//Stop old platform interface
+					ci.Cancel()
+
+					//Start new
+					ctx, cancel := context.WithCancel(f.ctx)
+					ci.Cancel = cancel
+					ci.Ctx = ctx
+					ci.Platform = &newPlatform
+					//Channel is reused
+
+					f.startInterface(&f.ciCollection[index])
 					return nil
 				}
 

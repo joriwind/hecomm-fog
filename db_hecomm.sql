@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Host: localhost
--- Generation Time: Sep 05, 2017 at 10:31 AM
+-- Generation Time: Sep 15, 2017 at 11:40 AM
 -- Server version: 5.7.19-0ubuntu0.16.04.1
 -- PHP Version: 7.0.22-0ubuntu0.16.04.1
 
@@ -23,32 +23,6 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- Table structure for table `link`
---
-
-CREATE TABLE `link` (
-  `id` int(11) NOT NULL,
-  `provnode` int(11) NOT NULL,
-  `reqnode` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `node`
---
-
-CREATE TABLE `node` (
-  `id` int(11) NOT NULL,
-  `devid` varbinary(50) NOT NULL,
-  `platformid` int(11) NOT NULL,
-  `isprovider` tinyint(1) NOT NULL,
-  `inftype` int(20) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `platform`
 --
 
@@ -57,47 +31,38 @@ CREATE TABLE `platform` (
   `address` varchar(50) NOT NULL,
   `tlscert` varchar(50) DEFAULT NULL,
   `tlskey` varchar(50) DEFAULT NULL,
-  `citype` int(20) NOT NULL,
-  `ciargs` text
+  `ciargs` text,
+  `citype` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+--
+-- Truncate table before insert `platform`
+--
+
+TRUNCATE TABLE `platform`;
+--
+-- Dumping data for table `platform`
+--
+
+INSERT INTO `platform` (`id`, `address`, `tlscert`, `tlskey`, `ciargs`, `citype`) VALUES
+(1, '192.168.2.123:2001', '', '', NULL, 0),
+(2, '192.168.2.106:2000', '', '', NULL, 0);
 
 --
 -- Indexes for dumped tables
 --
 
 --
--- Indexes for table `link`
---
-ALTER TABLE `link`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `node`
---
-ALTER TABLE `node`
-  ADD PRIMARY KEY (`id`);
-
---
 -- Indexes for table `platform`
 --
 ALTER TABLE `platform`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `citype` (`citype`);
+  ADD UNIQUE KEY `address` (`address`);
 
 --
 -- AUTO_INCREMENT for dumped tables
 --
 
---
--- AUTO_INCREMENT for table `link`
---
-ALTER TABLE `link`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
---
--- AUTO_INCREMENT for table `node`
---
-ALTER TABLE `node`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=123;
 --
 -- AUTO_INCREMENT for table `platform`
 --
