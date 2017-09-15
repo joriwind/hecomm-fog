@@ -2,7 +2,6 @@ package dbconnection
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 
@@ -91,8 +90,11 @@ func UpdatePlatform(pl *Platform) error {
 	if err != nil {
 		return err
 	}
-	if i, _ := res.RowsAffected(); i != 1 {
-		return errors.New("dbconnection: failed to update platform")
+	if i, err := res.RowsAffected(); i != 1 {
+		if err != nil {
+			return err
+		}
+		log.Printf("RowsAffected does not equals one: %v\n", i)
 	}
 	return nil
 }
@@ -200,7 +202,7 @@ func DeletePlatform(id int) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("DeletePlatform, Delete result did not equal 1:%v", i)
+		log.Printf("RowsAffected does not equals one: %v\n", i)
 	}
 	return nil
 }
@@ -247,8 +249,11 @@ func UpdateNode(n *Node) error {
 	if err != nil {
 		return err
 	}
-	if i, _ := res.RowsAffected(); i != 1 {
-		return errors.New("dbconnection: failed to insert node")
+	if i, err := res.RowsAffected(); i != 1 {
+		if err != nil {
+			return err
+		}
+		log.Printf("RowsAffected does not equals one: %v\n", i)
 	}
 	return nil
 }
@@ -275,7 +280,7 @@ func DeleteNode(id int) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("DeleteNode, Delete result did not equal 1:%v", i)
+		log.Printf("RowsAffected does not equals one: %v\n", i)
 	}
 	return nil
 }
@@ -456,8 +461,11 @@ func UpdateLink(l *Link) error {
 	if err != nil {
 		return err
 	}
-	if i, _ := res.RowsAffected(); i != 1 {
-		return errors.New("dbconnection: failed to insert node")
+	if i, err := res.RowsAffected(); i != 1 {
+		if err != nil {
+			return err
+		}
+		log.Printf("RowsAffected does not equals one: %v\n", i)
 	}
 	return nil
 }
@@ -541,7 +549,7 @@ func DeleteLink(id int) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("DeleteLink, Delete result did not equal 1:%v", i)
+		log.Printf("RowsAffected does not equals one: %v\n", i)
 	}
 	return nil
 }
