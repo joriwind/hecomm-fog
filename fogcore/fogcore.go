@@ -184,7 +184,7 @@ func (f *Fogcore) listenOnTLS() error {
 }
 
 func (f *Fogcore) handleTLSConn(conn net.Conn) {
-	buf := make([]byte, 2048)
+	buf := make([]byte, 10000)
 	defer conn.Close()
 	for {
 		//Read
@@ -209,7 +209,7 @@ func (f *Fogcore) handleTLSConn(conn net.Conn) {
 		//Detect control message, is boolean 'Link' true or false?
 		switch m.FPort {
 		case 10:
-			bufProv := make([]byte, 2048)
+			bufProv := make([]byte, 10000)
 			ctx, cancel := context.WithTimeout(f.ctx, time.Minute*5)
 			defer cancel()
 			ls := linkState{
@@ -257,29 +257,53 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message, tlsConfig *tls.Confi
 	var message *hecomm.Message
 	var err error
 	var rcv []byte
+	//rcv = make([]byte, 10000)
 	rcvOrigFromReq := true
 
 	//Init
 	message = sP
-	chReq := make(chan []byte, 10)
-	chProv := make(chan []byte, 10)
+	chReq := make(chan []byte, 1)
+	chProv := make(chan []byte, 1)
 	chError := make(chan error)
 
 	//Tunnel data from requester to channel requester
-	go func(ch chan []byte, chError chan error, buf []byte) {
+	go func(ch chan []byte, chError chan error) {
+
+		buf := make([]byte, 4048)
+		s := 0
+		n := 0
+		var err error
 		for {
-			n, err := ls.ReqConn.Read(buf)
-			if err != nil {
-				chError <- err
-				return
+
+			for {
+				n, err = ls.ReqConn.Read(buf)
+				if err != nil {
+					//log.Fatalf("Could not read from connection: %v\n", err)
+					chError <- err
+					return
+				}
+				fmt.Printf("Received %v bytes from requester\n", n)
+
+				if buf[0] != 123 {
+					chError <- fmt.Errorf("First character != 123: %v", buf[0])
+					return
+				}
+
+				if buf[n+s-1] == 125 {
+					break
+				} else {
+					s = s + n
+				}
 			}
-			ch <- buf[:n]
+			ch <- buf[:n+s]
+			s = 0
+			n = 0
 		}
-	}(chReq, chError, ls.BufReq)
+	}(chReq, chError)
 
 	//Keep running while protocol is active
 	for {
-
+		fmt.Printf("Received message, FPort: %v, originReq: %v\n", message.FPort, rcvOrigFromReq)
 		//Do action depending on type of message
 		switch message.FPort {
 
@@ -360,27 +384,50 @@ func (ls *linkState) handleLinkProtocol(sP *hecomm.Message, tlsConfig *tls.Confi
 			ls.ProvConn.Write(bytes)
 
 			//Tunnel data from provider to channel provider
-			go func(ch chan []byte, chError chan error, buf []byte) {
+			go func(ch chan []byte, chError chan error) {
+
+				buf := make([]byte, 4048)
+				s := 0
+				n := 0
+				var err error
+
 				for {
-					n, err := ls.ProvConn.Read(buf)
-					if err != nil {
-						chError <- err
-						return
+					for {
+						n, err = ls.ProvConn.Read(buf[s:])
+						if err != nil {
+							//log.Fatalf("Could not read from connection: %v\n", err)
+							chError <- err
+							return
+						}
+						fmt.Printf("Received %v bytes from provider\n", n)
+
+						if buf[0] != 123 {
+							chError <- fmt.Errorf("First character != 123: %v", buf[0])
+							return
+						}
+
+						if buf[n+s-1] == 125 {
+							break
+						} else {
+							s = s + n
+						}
 					}
-					ch <- buf[:n]
+					ch <- buf[:n+s]
+					s = 0
+					n = 0
 				}
-			}(chProv, chError, ls.BufProv)
+			}(chProv, chError)
 
 		case hecomm.FPortLinkState:
 			//Depending on origin of data send to the other
-			bytes, err := message.GetBytes()
+			/* bytes, err := message.GetBytes()
 			if err != nil {
 				log.Fatalf("Unable to compile message to bytes: %v\n", err)
-			}
+			} */
 			if rcvOrigFromReq {
-				ls.ProvConn.Write(bytes)
+				ls.ProvConn.Write(rcv)
 			} else {
-				ls.ReqConn.Write(bytes)
+				ls.ReqConn.Write(rcv)
 			}
 
 		case hecomm.FPortLinkSet:
