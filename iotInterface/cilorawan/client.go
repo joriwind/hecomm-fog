@@ -49,7 +49,7 @@ func NewNetworkClient(ctx context.Context, host string) (*NetworkClient, error) 
 func (n *NetworkClient) SendData(message iotInterface.ComLinkMessage) error {
 	pushDataDownReq := &ns.PushDataDownRequest{
 		DevEUI:    message.Destination,
-		Confirmed: true,
+		Confirmed: false,
 		FCnt:      0,
 		FPort:     255,
 		Data:      message.Data,
@@ -63,6 +63,8 @@ func (n *NetworkClient) SendData(message iotInterface.ComLinkMessage) error {
 		//log.Printf("LoRaWAN interface: GetNodeSession did not work: %v", err)
 		return err
 	} else {
+		log.Printf("FCntDown(f): %v\n", nodeSessionResponse.GetFCntDown())
+		log.Printf("FCntDown(v): %v\n", nodeSessionResponse.FCntDown)
 		pushDataDownReq.FCnt = nodeSessionResponse.FCntDown
 	}
 

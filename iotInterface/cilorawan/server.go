@@ -107,6 +107,7 @@ func (a *ApplicationServerAPI) HandleDataUp(ctx context.Context, req *as.HandleD
 func (a *ApplicationServerAPI) GetDataDown(ctx context.Context, req *as.GetDataDownRequest) (*as.GetDataDownResponse, error) {
 	/*var devEUI lorawan.EUI64
 	copy(devEUI[:], req.DevEUI)*/
+	log.Printf("Datadown requested\n")
 
 	return &as.GetDataDownResponse{}, nil
 
@@ -116,6 +117,7 @@ func (a *ApplicationServerAPI) GetDataDown(ctx context.Context, req *as.GetDataD
 func (a *ApplicationServerAPI) HandleDataDownACK(ctx context.Context, req *as.HandleDataDownACKRequest) (*as.HandleDataDownACKResponse, error) {
 	/*var devEUI lorawan.EUI64
 	copy(devEUI[:], req.DevEUI)*/
+	log.Printf("HandleDatadownAck requested\n")
 
 	return &as.HandleDataDownACKResponse{}, nil
 
